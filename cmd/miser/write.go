@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/Waxmard/miser/internal/categorize"
 	"github.com/Waxmard/miser/internal/process"
 	"github.com/Waxmard/miser/internal/repository"
 	_ "github.com/Waxmard/miser/internal/repository/sqlite"
@@ -58,6 +59,18 @@ func runWriteParsed(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	fmt.Printf("Created %d transactions\n", count)
+
+	// Run rule engine on new uncategorized transactions.
+	if count > 0 {
+		ruleResult, err := categorize.RunRules(ctx, repo)
+		if err != nil {
+			return fmt.Errorf("rule engine: %w", err)
+		}
+		if ruleResult.Categorized > 0 {
+			fmt.Printf("Rule engine categorized %d/%d transactions\n", ruleResult.Categorized, ruleResult.Checked)
+		}
+	}
+
 	return nil
 }
 
