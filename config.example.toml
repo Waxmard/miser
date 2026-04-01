@@ -1,0 +1,22 @@
+[database]
+driver = "sqlite"
+sqlite_path = "~/.miser/miser.db"
+# postgres_url = "postgresql://..."   # future
+
+[email]
+enabled = true
+imap_server = "imap.gmail.com"
+imap_port = 993
+username = "you@gmail.com"
+app_password = ""
+label = "Finance/Fidelity"
+poll_interval_minutes = 15
+account_name = "Cash Management (Individual) (...3002)"
+
+[plaid]
+enabled = false
+client_id = ""
+secret = ""
+
+[csv]
+watch_dir = "~/.miser/import"
