@@ -104,7 +104,21 @@ func parseMonarchCSV(path string) ([]MonarchRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read header: %w", err)
 	}
-	if len(header) < 9 || header[0] != "Date" || header[1] != "Merchant" {
+	if len(header) < 9 || header[0] != "Date" {
+		return nil, fmt.Errorf("unexpected CSV header: %v", header)
+	}
+
+	// Auto-detect format from second column.
+	var parseRow func([]string) (*MonarchRow, error)
+	switch header[1] {
+	case "Merchant":
+		// New format: Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner
+		parseRow = parseNewFormat
+	case "Original Date":
+		// Old format: Date,Original Date,Account Type,Account Name,Account Number,
+		//             Institution Name,Name,Custom Name,Amount,Description,Category,Note,Ignored From,Tax Deductible
+		parseRow = parseOldFormat
+	default:
 		return nil, fmt.Errorf("unexpected CSV header: %v", header)
 	}
 
@@ -117,29 +131,74 @@ func parseMonarchCSV(path string) ([]MonarchRow, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read row: %w", err)
 		}
-		if len(record) < 9 {
-			continue
-		}
 
-		amount, err := strconv.ParseFloat(record[6], 64)
+		row, err := parseRow(record)
 		if err != nil {
-			return nil, fmt.Errorf("parse amount %q: %w", record[6], err)
+			return nil, err
 		}
-
-		rows = append(rows, MonarchRow{
-			Date:              record[0],
-			Merchant:          record[1],
-			Category:          record[2],
-			Account:           record[3],
-			OriginalStatement: record[4],
-			Notes:             record[5],
-			Amount:            amount,
-			Tags:              record[7],
-			Owner:             record[8],
-		})
+		if row != nil {
+			rows = append(rows, *row)
+		}
 	}
 
 	return rows, nil
+}
+
+// New format: Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner
+func parseNewFormat(record []string) (*MonarchRow, error) {
+	if len(record) < 9 {
+		return nil, nil
+	}
+
+	amount, err := strconv.ParseFloat(record[6], 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse amount %q: %w", record[6], err)
+	}
+
+	return &MonarchRow{
+		Date:              record[0],
+		Merchant:          record[1],
+		Category:          record[2],
+		Account:           record[3],
+		OriginalStatement: record[4],
+		Notes:             record[5],
+		Amount:            amount,
+		Tags:              record[7],
+		Owner:             record[8],
+	}, nil
+}
+
+// Old format: Date,Original Date,Account Type,Account Name,Account Number,
+// Institution Name,Name,Custom Name,Amount,Description,Category,Note,Ignored From,Tax Deductible
+func parseOldFormat(record []string) (*MonarchRow, error) {
+	if len(record) < 11 {
+		return nil, nil
+	}
+
+	// Skip rows with "Ignored From" populated (column 12, 0-indexed).
+	if len(record) > 12 && record[12] != "" {
+		return nil, nil
+	}
+
+	amount, err := strconv.ParseFloat(record[8], 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse amount %q: %w", record[8], err)
+	}
+
+	merchant := record[6] // Name
+	if record[7] != "" {  // Custom Name takes precedence
+		merchant = record[7]
+	}
+
+	return &MonarchRow{
+		Date:              record[0],
+		Merchant:          merchant,
+		Category:          record[10],
+		Account:           record[3], // Account Name
+		OriginalStatement: record[9], // Description
+		Notes:             record[11],
+		Amount:            amount,
+	}, nil
 }
 
 func ensureAccounts(ctx context.Context, repo repository.Repository, rows []MonarchRow) (map[string]string, error) {

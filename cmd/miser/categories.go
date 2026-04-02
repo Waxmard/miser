@@ -18,6 +18,8 @@ var categoriesCmd = &cobra.Command{
 }
 
 func init() {
+	categoriesCmd.Flags().String("from", "", "Start date (YYYY-MM-DD), default: all time")
+	categoriesCmd.Flags().String("to", "", "End date (YYYY-MM-DD), default: all time")
 	rootCmd.AddCommand(categoriesCmd)
 }
 
@@ -34,10 +36,13 @@ func runCategories(cmd *cobra.Command, _ []string) error {
 	}
 	defer repo.Close()
 
-	now := time.Now().UTC()
-	year, month, _ := now.Date()
-	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
-	to := from.AddDate(0, 1, -1).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	var from, to time.Time
+	if f, _ := cmd.Flags().GetString("from"); f != "" {
+		from, _ = time.Parse("2006-01-02", f)
+	}
+	if t, _ := cmd.Flags().GetString("to"); t != "" {
+		to, _ = time.Parse("2006-01-02", t)
+	}
 
 	cats, err := repo.Categories().ListWithCounts(ctx, from, to)
 	if err != nil {

@@ -16,7 +16,7 @@ func (r *accountRepo) Create(ctx context.Context, a *repository.Account) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO accounts (id, name, institution, account_type, source, plaid_account_id, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		a.ID, a.Name, a.Institution, a.AccountType, a.Source, a.PlaidAccountID,
+		a.ID, a.Name, a.Institution, a.AccountType, a.Source, a.ExternalID,
 		a.CreatedAt.Format(timeFormat), a.UpdatedAt.Format(timeFormat),
 	)
 	if err != nil {
@@ -63,7 +63,7 @@ func (r *accountRepo) Update(ctx context.Context, a *repository.Account) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE accounts SET name = ?, institution = ?, account_type = ?, source = ?,
 		 plaid_account_id = ?, updated_at = ? WHERE id = ?`,
-		a.Name, a.Institution, a.AccountType, a.Source, a.PlaidAccountID,
+		a.Name, a.Institution, a.AccountType, a.Source, a.ExternalID,
 		a.UpdatedAt.Format(timeFormat), a.ID,
 	)
 	if err != nil {
@@ -84,7 +84,7 @@ func scanAccount(row *sql.Row) (*repository.Account, error) {
 	var a repository.Account
 	var createdAt, updatedAt string
 	err := row.Scan(&a.ID, &a.Name, &a.Institution, &a.AccountType, &a.Source,
-		&a.PlaidAccountID, &createdAt, &updatedAt)
+		&a.ExternalID, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scan account: %w", err)
 	}
@@ -101,7 +101,7 @@ func scanAccountRow(row rowScanner) (*repository.Account, error) {
 	var a repository.Account
 	var createdAt, updatedAt string
 	err := row.Scan(&a.ID, &a.Name, &a.Institution, &a.AccountType, &a.Source,
-		&a.PlaidAccountID, &createdAt, &updatedAt)
+		&a.ExternalID, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scan account row: %w", err)
 	}

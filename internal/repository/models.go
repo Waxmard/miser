@@ -3,14 +3,14 @@ package repository
 import "time"
 
 type Account struct {
-	ID             string
-	Name           string
-	Institution    string // "fidelity", "capital_one", "chase", etc.
-	AccountType    string // "checking", "savings", "credit", "investment", "brokerage"
-	Source         string // "email", "plaid", "csv", "monarch_import"
-	PlaidAccountID *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID          string
+	Name        string
+	Institution string  // "fidelity", "capital_one", "chase", etc.
+	AccountType string  // "checking", "savings", "credit", "investment", "brokerage"
+	Source      string  // "email", "simplefin", "csv", "monarch_import"
+	ExternalID  *string // provider-specific account ID (DB column: plaid_account_id)
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Transaction struct {
@@ -23,7 +23,7 @@ type Transaction struct {
 	Description       *string
 	OriginalStatement *string // raw bank statement text
 	Date              time.Time
-	Source            string  // "email", "plaid", "csv", "monarch_import"
+	Source            string  // "email", "simplefin", "csv", "monarch_import"
 	SourceID          *string // dedup key
 	Status            string  // "uncategorized", "categorized"
 	CategorizedBy     *string // "claude", "rule", "manual", "monarch_import"

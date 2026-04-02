@@ -17,11 +17,11 @@ Personal finance CLI that replaces [Monarch Money](https://www.monarchmoney.com/
 # Install dev tools (golangci-lint, goimports, lefthook)
 make tools
 
-# Build
-make build
+# Install to $GOPATH/bin (usually ~/go/bin)
+go install ./cmd/miser
 
 # Initialize config and database
-./bin/miser init
+miser init
 
 # Import Monarch Money history (one-time)
 ./bin/miser import-monarch ~/Downloads/monarch-transactions.csv

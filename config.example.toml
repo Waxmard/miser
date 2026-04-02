@@ -13,10 +13,9 @@ label = "Finance/Fidelity"
 poll_interval_minutes = 15
 account_name = "Cash Management (Individual) (...3002)"
 
-[plaid]
+[simplefin]
 enabled = false
-client_id = ""
-secret = ""
+access_url = ""   # obtained via: miser setup simplefin <setup-token>
 
 [csv]
 watch_dir = "~/.miser/import"
