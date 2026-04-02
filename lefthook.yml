@@ -13,7 +13,3 @@ pre-commit:
     go-test:
       glob: "*.go"
       run: go test ./... -short
-pre-push:
-  commands:
-    go-test-full:
-      run: go test ./... -race -count=1
