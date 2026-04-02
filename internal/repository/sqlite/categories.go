@@ -72,15 +72,28 @@ func (r *categoryRepo) List(ctx context.Context) ([]repository.Category, error) 
 }
 
 func (r *categoryRepo) ListWithCounts(ctx context.Context, from, to time.Time) ([]repository.CategoryWithCount, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT c.id, c.name, c.parent_id, c.icon, c.created_at,
-		 COUNT(t.id) AS txn_count, COALESCE(SUM(t.amount), 0) AS total_amount
-		 FROM categories c
-		 LEFT JOIN transactions t ON c.id = t.category_id AND t.date >= ? AND t.date <= ?
-		 GROUP BY c.id
-		 ORDER BY total_amount ASC`,
-		from.Format(timeFormat), to.Format(timeFormat),
-	)
+	var rows *sql.Rows
+	var err error
+
+	if from.IsZero() && to.IsZero() {
+		rows, err = r.db.QueryContext(ctx,
+			`SELECT c.id, c.name, c.parent_id, c.icon, c.created_at,
+			 COUNT(t.id) AS txn_count, COALESCE(SUM(t.amount), 0) AS total_amount
+			 FROM categories c
+			 LEFT JOIN transactions t ON c.id = t.category_id
+			 GROUP BY c.id
+			 ORDER BY total_amount ASC`)
+	} else {
+		rows, err = r.db.QueryContext(ctx,
+			`SELECT c.id, c.name, c.parent_id, c.icon, c.created_at,
+			 COUNT(t.id) AS txn_count, COALESCE(SUM(t.amount), 0) AS total_amount
+			 FROM categories c
+			 LEFT JOIN transactions t ON c.id = t.category_id AND t.date >= ? AND t.date <= ?
+			 GROUP BY c.id
+			 ORDER BY total_amount ASC`,
+			from.Format(timeFormat), to.Format(timeFormat),
+		)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("list categories with counts: %w", err)
 	}
