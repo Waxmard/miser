@@ -22,10 +22,9 @@ label = "Finance/Fidelity"
 poll_interval_minutes = 15
 account_name = "Test Account"
 
-[plaid]
+[simplefin]
 enabled = false
-client_id = ""
-secret = ""
+access_url = ""
 
 [csv]
 watch_dir = "/tmp/import"

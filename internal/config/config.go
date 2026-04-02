@@ -10,10 +10,10 @@ import (
 )
 
 type Config struct {
-	Database DatabaseConfig `toml:"database"`
-	Email    EmailConfig    `toml:"email"`
-	Plaid    PlaidConfig    `toml:"plaid"`
-	CSV      CSVConfig      `toml:"csv"`
+	Database  DatabaseConfig  `toml:"database"`
+	Email     EmailConfig     `toml:"email"`
+	SimpleFin SimpleFinConfig `toml:"simplefin"`
+	CSV       CSVConfig       `toml:"csv"`
 }
 
 type DatabaseConfig struct {
@@ -33,10 +33,9 @@ type EmailConfig struct {
 	AccountName         string `toml:"account_name"`
 }
 
-type PlaidConfig struct {
-	Enabled  bool   `toml:"enabled"`
-	ClientID string `toml:"client_id"`
-	Secret   string `toml:"secret"`
+type SimpleFinConfig struct {
+	Enabled   bool   `toml:"enabled"`
+	AccessURL string `toml:"access_url"`
 }
 
 type CSVConfig struct {
