@@ -143,6 +143,54 @@ func TestImportMonarchRuleMatching(t *testing.T) {
 	}
 }
 
+const testCSVOldFormat = `Date,Original Date,Account Type,Account Name,Account Number,Institution Name,Name,Custom Name,Amount,Description,Category,Note,Ignored From,Tax Deductible
+2023-11-07,2023-11-07,Credit Card,Costco Visa,7686,Citibank,ExxonMobil,,66.92,EXXON T HIJAZI,Auto & Transport,,,
+2023-11-15,2023-11-15,Credit Card,Costco Visa,7686,Citibank,Shell,,54.4,SHELL OIL 57543616205,Auto & Transport,,,
+2023-11-17,2023-11-17,Credit Card,Quicksilver,2459,Capital One,EZPASSVA,,70,EZPASSVA AUTO REPLENIS,Auto & Transport,,,
+2023-11-19,2023-11-19,Credit Card,Costco Visa,7686,Citibank,ExxonMobil,,52.44,EXXON RIGHT FIRST TIME,Auto & Transport,,,
+2023-11-25,2023-11-25,Credit Card,Costco Visa,7686,Citibank,ExxonMobil,,48.10,EXXON MAIN STREET,Auto & Transport,,,
+2024-01-05,2024-01-05,Credit Card,Costco Visa,7686,Citibank,Ignored Row,,10,SOMETHING,Auto & Transport,,Auto & Transport,
+`
+
+func TestImportMonarchOldFormat(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	path := filepath.Join(t.TempDir(), "old-format.csv")
+	if err := os.WriteFile(path, []byte(testCSVOldFormat), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := ImportMonarch(ctx, repo, path)
+	if err != nil {
+		t.Fatalf("ImportMonarch() error: %v", err)
+	}
+
+	// 6 data rows, 1 has "Ignored From" populated → 5 imported.
+	if result.Transactions != 5 {
+		t.Errorf("Transactions = %d, want 5", result.Transactions)
+	}
+	if result.Accounts != 2 {
+		t.Errorf("Accounts = %d, want 2 (Costco Visa, Quicksilver)", result.Accounts)
+	}
+
+	// ExxonMobil appears 3 times → should create a rule.
+	rules, err := repo.Rules().List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for i := range rules {
+		if rules[i].Pattern == "ExxonMobil" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected rule for ExxonMobil")
+	}
+}
+
 func TestGuessInstitution(t *testing.T) {
 	tests := []struct {
 		name string
