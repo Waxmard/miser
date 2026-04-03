@@ -41,7 +41,7 @@ var processBudgetsCmd = &cobra.Command{
 
 func init() {
 	processCmd.AddCommand(processEmailsCmd, processCategorizeCmd, processTrendsCmd, processBudgetsCmd)
-	rootCmd.AddCommand(processCmd)
+	internalCmd.AddCommand(processCmd)
 }
 
 func runProcessEmails(cmd *cobra.Command, _ []string) error {

@@ -23,7 +23,7 @@ You are a personal finance analyst for a single user. Your job is to analyze the
 Run this command and read its output:
 
 ```bash
-miser process budgets
+miser internal process budgets
 ```
 
 This returns JSON with the structure:
@@ -126,7 +126,7 @@ Key rules for the output:
 Then run:
 
 ```bash
-miser write-budgets /tmp/miser-budgets.json
+miser internal write budgets /tmp/miser-budgets.json
 ```
 
 Verify they were saved by running `miser trends` (the human-readable spending table with budget columns -- distinct from `miser process trends` which outputs raw JSON for cron jobs):

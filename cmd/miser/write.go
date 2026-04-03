@@ -11,35 +11,35 @@ import (
 )
 
 var writeParsedCmd = &cobra.Command{
-	Use:   "write-parsed <json-file>",
+	Use:   "parsed <json-file>",
 	Short: "Write Claude's email parse results to the database",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runWriteParsed,
 }
 
 var writeCategoriesCmd = &cobra.Command{
-	Use:   "write-categories <json-file>",
+	Use:   "categories <json-file>",
 	Short: "Write Claude's categorization results to the database",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runWriteCategories,
 }
 
 var writeReportCmd = &cobra.Command{
-	Use:   "write-report <json-file>",
+	Use:   "report <json-file>",
 	Short: "Write Claude's narrative report to the database",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runWriteReport,
 }
 
 var writeBudgetsCmd = &cobra.Command{
-	Use:   "write-budgets <json-file>",
+	Use:   "budgets <json-file>",
 	Short: "Write Claude's budget suggestions to the database",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runWriteBudgets,
 }
 
 func init() {
-	rootCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd, writeBudgetsCmd)
+	internalWriteCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd, writeBudgetsCmd)
 }
 
 func runWriteParsed(cmd *cobra.Command, args []string) error {
