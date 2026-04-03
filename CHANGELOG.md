@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/Waxmard/miser/compare/v0.2.0...v1.0.0) (2026-04-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* reorganize CLI commands and add budget suggestion workflow ([#8](https://github.com/Waxmard/miser/issues/8))
+
+### Features
+
+* reorganize CLI commands and add budget suggestion workflow ([#8](https://github.com/Waxmard/miser/issues/8)) ([e0eab5c](https://github.com/Waxmard/miser/commit/e0eab5c01bd4bc97d1670c256e738a0c0d427c9b))
+
 ## [0.2.0](https://github.com/Waxmard/miser/compare/v0.1.0...v0.2.0) (2026-04-02)
 
 
