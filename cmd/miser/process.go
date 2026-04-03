@@ -49,7 +49,7 @@ func runProcessEmails(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	return process.PrintPendingEmails(ctx, repo, cfg.Email.AccountName, os.Stdout)
 }
@@ -65,7 +65,7 @@ func runProcessCategorize(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	return process.PrintUncategorized(ctx, repo, os.Stdout)
 }
@@ -81,7 +81,7 @@ func runProcessTrends(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	return process.PrintTrends(ctx, repo, os.Stdout)
 }

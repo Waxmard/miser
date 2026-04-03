@@ -47,7 +47,7 @@ func (r *transactionRepo) CreateBatch(ctx context.Context, txns []repository.Tra
 	if err != nil {
 		return 0, fmt.Errorf("prepare batch insert: %w", err)
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	inserted := 0
 	for i := range txns {
@@ -144,7 +144,7 @@ func (r *transactionRepo) List(ctx context.Context, f *repository.TransactionFil
 	if err != nil {
 		return nil, fmt.Errorf("list transactions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var txns []repository.Transaction
 	for rows.Next() {
@@ -191,7 +191,7 @@ func (r *transactionRepo) GetUncategorized(ctx context.Context, limit int) ([]re
 	if err != nil {
 		return nil, fmt.Errorf("get uncategorized: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var txns []repository.Transaction
 	for rows.Next() {
@@ -213,7 +213,7 @@ func (r *transactionRepo) GetRecentCategorized(ctx context.Context, limit int) (
 	if err != nil {
 		return nil, fmt.Errorf("get recent categorized: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var txns []repository.Transaction
 	for rows.Next() {

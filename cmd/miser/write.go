@@ -46,7 +46,7 @@ func runWriteParsed(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	// Look up the account ID for the configured email account.
 	acct, err := repo.Accounts().GetByName(ctx, cfg.Email.AccountName)
@@ -85,7 +85,7 @@ func runWriteCategories(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	count, err := process.WriteCategories(ctx, repo, args[0])
 	if err != nil {
@@ -106,7 +106,7 @@ func runWriteReport(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	if err := process.WriteReport(ctx, repo, args[0]); err != nil {
 		return err

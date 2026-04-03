@@ -53,7 +53,7 @@ func (r *budgetRepo) List(ctx context.Context) ([]repository.Budget, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list budgets: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var budgets []repository.Budget
 	for rows.Next() {

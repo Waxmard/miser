@@ -36,7 +36,7 @@ func (r *ruleRepo) List(ctx context.Context) ([]repository.CategoryRule, error) 
 	if err != nil {
 		return nil, fmt.Errorf("list rules: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var rules []repository.CategoryRule
 	for rows.Next() {
@@ -84,7 +84,7 @@ func (r *ruleRepo) FindMatch(ctx context.Context, merchant string) (*repository.
 	if err != nil {
 		return nil, fmt.Errorf("query contains rules: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	merchantLower := strings.ToLower(merchant)
 	for rows.Next() {

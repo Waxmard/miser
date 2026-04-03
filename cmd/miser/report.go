@@ -29,7 +29,7 @@ func runReport(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	report, err := repo.Reports().GetLatest(ctx)
 	if err != nil {

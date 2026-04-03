@@ -74,7 +74,7 @@ func runSyncEmail(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	fmt.Printf("Connecting to %s...\n", cfg.Email.IMAPServer)
 	result, err := ingest.SyncEmail(ctx, repo, &cfg.Email)
@@ -107,7 +107,7 @@ func runSyncSimpleFin(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	fmt.Println("Syncing from SimpleFIN...")
 	result, err := ingest.SyncSimpleFIN(ctx, repo, &cfg.SimpleFin)

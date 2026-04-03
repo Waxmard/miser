@@ -39,7 +39,7 @@ func SyncEmail(ctx context.Context, repo repository.Repository, cfg *config.Emai
 	if err != nil {
 		return nil, fmt.Errorf("connect to %s: %w", addr, err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	if err := client.Login(cfg.Username, cfg.AppPassword).Wait(); err != nil {
 		return nil, fmt.Errorf("login: %w", err)
@@ -85,7 +85,7 @@ func SyncEmail(ctx context.Context, repo repository.Repository, cfg *config.Emai
 	}
 
 	fetchCmd := client.Fetch(seqSet, fetchOpts)
-	defer fetchCmd.Close()
+	defer func() { _ = fetchCmd.Close() }()
 
 	var maxUID imap.UID
 	now := time.Now().UTC()
