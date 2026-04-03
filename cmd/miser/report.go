@@ -15,7 +15,7 @@ var reportCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(reportCmd)
+	trendsCmd.AddCommand(reportCmd)
 }
 
 func runReport(cmd *cobra.Command, _ []string) error {

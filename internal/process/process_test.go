@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -256,6 +257,350 @@ func TestWriteCategories(t *testing.T) {
 	}
 	if rule.Pattern != "Starbucks" {
 		t.Errorf("Rule.Pattern = %q, want %q", rule.Pattern, "Starbucks")
+	}
+}
+
+func TestPrintBudgetData(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	acct := &repository.Account{
+		ID: "acct_01", Name: "Checking", Institution: "test",
+		AccountType: "checking", Source: "manual", CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.Accounts().Create(ctx, acct); err != nil {
+		t.Fatal(err)
+	}
+
+	groceries := &repository.Category{ID: "cat_01", Name: "Groceries", CreatedAt: now}
+	dining := &repository.Category{ID: "cat_02", Name: "Dining", CreatedAt: now}
+	if err := repo.Categories().Create(ctx, groceries); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Categories().Create(ctx, dining); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create transactions across 3 of the last 6 months.
+	curYear, curMonth, _ := now.Date()
+	currentMonthStart := time.Date(curYear, curMonth, 1, 0, 0, 0, 0, time.UTC)
+
+	months := []time.Time{
+		currentMonthStart.AddDate(0, -1, 5), // last month
+		currentMonthStart.AddDate(0, -2, 5), // 2 months ago
+		currentMonthStart.AddDate(0, -3, 5), // 3 months ago
+	}
+
+	catID := groceries.ID
+	categorizedBy := "manual"
+	for i, date := range months {
+		txn := &repository.Transaction{
+			ID: fmt.Sprintf("txn_g_%d", i), AccountID: "acct_01",
+			Amount: -100.00 * float64(i+1), Merchant: "Grocery Store",
+			Date: date, Source: "manual", Status: "categorized",
+			CategoryID: &catID, CategorizedBy: &categorizedBy,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := repo.Transactions().Create(ctx, txn); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	diningID := dining.ID
+	txn := &repository.Transaction{
+		ID: "txn_d_0", AccountID: "acct_01",
+		Amount: -50.00, Merchant: "Restaurant",
+		Date: months[0], Source: "manual", Status: "categorized",
+		CategoryID: &diningID, CategorizedBy: &categorizedBy,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.Transactions().Create(ctx, txn); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set an existing budget for groceries.
+	budget := &repository.Budget{
+		ID: "bud_01", CategoryID: "cat_01", MonthlyAmount: 500.00,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.Budgets().Set(ctx, budget); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	if err := PrintBudgetData(ctx, repo, &buf); err != nil {
+		t.Fatalf("PrintBudgetData() error: %v", err)
+	}
+
+	var out BudgetDataOutput
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if out.MonthsIncluded != 6 {
+		t.Errorf("MonthsIncluded = %d, want 6", out.MonthsIncluded)
+	}
+	if len(out.Categories) != 2 {
+		t.Fatalf("len(Categories) = %d, want 2", len(out.Categories))
+	}
+
+	// Categories should be sorted alphabetically.
+	if out.Categories[0].Category != "Dining" {
+		t.Errorf("Categories[0].Category = %q, want %q", out.Categories[0].Category, "Dining")
+	}
+	if out.Categories[1].Category != "Groceries" {
+		t.Errorf("Categories[1].Category = %q, want %q", out.Categories[1].Category, "Groceries")
+	}
+
+	// Each category should have 6 months of data.
+	for _, cat := range out.Categories {
+		if len(cat.Months) != 6 {
+			t.Errorf("Category %q: len(Months) = %d, want 6", cat.Category, len(cat.Months))
+		}
+	}
+
+	// Existing budgets should be present.
+	if len(out.ExistingBudgets) != 1 {
+		t.Fatalf("len(ExistingBudgets) = %d, want 1", len(out.ExistingBudgets))
+	}
+	if out.ExistingBudgets[0].Category != "Groceries" {
+		t.Errorf("ExistingBudgets[0].Category = %q, want %q", out.ExistingBudgets[0].Category, "Groceries")
+	}
+}
+
+func TestPrintBudgetData_EmptyDB(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	var buf bytes.Buffer
+	if err := PrintBudgetData(ctx, repo, &buf); err != nil {
+		t.Fatalf("PrintBudgetData() error: %v", err)
+	}
+
+	var out BudgetDataOutput
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if out.MonthsIncluded != 6 {
+		t.Errorf("MonthsIncluded = %d, want 6", out.MonthsIncluded)
+	}
+	if len(out.Categories) != 0 {
+		t.Errorf("len(Categories) = %d, want 0", len(out.Categories))
+	}
+}
+
+func TestWriteBudgets(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	groceries := &repository.Category{ID: "cat_01", Name: "Groceries", CreatedAt: now}
+	dining := &repository.Category{ID: "cat_02", Name: "Dining", CreatedAt: now}
+	if err := repo.Categories().Create(ctx, groceries); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Categories().Create(ctx, dining); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create an existing budget for groceries.
+	budget := &repository.Budget{
+		ID: "bud_01", CategoryID: "cat_01", MonthlyAmount: 500.00,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.Budgets().Set(ctx, budget); err != nil {
+		t.Fatal(err)
+	}
+
+	input := BudgetsInput{
+		Budgets: []BudgetSuggestion{
+			{CategoryID: "cat_01", Category: "Groceries", Amount: 550.00, Reasoning: "test"},
+			{CategoryID: "cat_02", Category: "Dining", Amount: 200.00, Reasoning: "test"},
+		},
+	}
+
+	jsonPath := filepath.Join(t.TempDir(), "budgets.json")
+	data, _ := json.Marshal(input)
+	if err := os.WriteFile(jsonPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := WriteBudgets(ctx, repo, jsonPath)
+	if err != nil {
+		t.Fatalf("WriteBudgets() error: %v", err)
+	}
+	if result.Set != 2 {
+		t.Errorf("Set = %d, want 2", result.Set)
+	}
+
+	// Verify no duplicates -- should be exactly 2 budgets.
+	budgets, err := repo.Budgets().List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(budgets) != 2 {
+		t.Fatalf("len(budgets) = %d, want 2", len(budgets))
+	}
+
+	// Groceries budget should have been updated (same ID).
+	grocBudget, err := repo.Budgets().GetByCategoryID(ctx, "cat_01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if grocBudget.ID != "bud_01" {
+		t.Errorf("Groceries budget ID = %q, want %q (should reuse existing)", grocBudget.ID, "bud_01")
+	}
+	if grocBudget.MonthlyAmount != 550.00 {
+		t.Errorf("Groceries MonthlyAmount = %f, want 550.00", grocBudget.MonthlyAmount)
+	}
+
+	// Dining budget should have been newly created.
+	dinBudget, err := repo.Budgets().GetByCategoryID(ctx, "cat_02")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dinBudget.MonthlyAmount != 200.00 {
+		t.Errorf("Dining MonthlyAmount = %f, want 200.00", dinBudget.MonthlyAmount)
+	}
+}
+
+func TestWriteBudgets_UpdateExisting(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	cat := &repository.Category{ID: "cat_01", Name: "Groceries", CreatedAt: now}
+	if err := repo.Categories().Create(ctx, cat); err != nil {
+		t.Fatal(err)
+	}
+
+	budget := &repository.Budget{
+		ID: "bud_01", CategoryID: "cat_01", MonthlyAmount: 500.00,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.Budgets().Set(ctx, budget); err != nil {
+		t.Fatal(err)
+	}
+
+	input := BudgetsInput{
+		Budgets: []BudgetSuggestion{
+			{CategoryID: "cat_01", Category: "Groceries", Amount: 550.00, Reasoning: "test"},
+		},
+	}
+
+	jsonPath := filepath.Join(t.TempDir(), "budgets.json")
+	data, _ := json.Marshal(input)
+	if err := os.WriteFile(jsonPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := WriteBudgets(ctx, repo, jsonPath)
+	if err != nil {
+		t.Fatalf("WriteBudgets() error: %v", err)
+	}
+	if result.Set != 1 {
+		t.Errorf("Set = %d, want 1", result.Set)
+	}
+
+	// Should be exactly 1 budget, not 2.
+	budgets, err := repo.Budgets().List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(budgets) != 1 {
+		t.Fatalf("len(budgets) = %d, want 1", len(budgets))
+	}
+	if budgets[0].ID != "bud_01" {
+		t.Errorf("Budget ID = %q, want %q", budgets[0].ID, "bud_01")
+	}
+	if budgets[0].MonthlyAmount != 550.00 {
+		t.Errorf("MonthlyAmount = %f, want 550.00", budgets[0].MonthlyAmount)
+	}
+}
+
+func TestWriteBudgets_Remove(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	groceries := &repository.Category{ID: "cat_01", Name: "Groceries", CreatedAt: now}
+	dining := &repository.Category{ID: "cat_02", Name: "Dining", CreatedAt: now}
+	if err := repo.Categories().Create(ctx, groceries); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Categories().Create(ctx, dining); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create budgets for both categories.
+	for _, b := range []*repository.Budget{
+		{ID: "bud_01", CategoryID: "cat_01", MonthlyAmount: 500.00, CreatedAt: now, UpdatedAt: now},
+		{ID: "bud_02", CategoryID: "cat_02", MonthlyAmount: 200.00, CreatedAt: now, UpdatedAt: now},
+	} {
+		if err := repo.Budgets().Set(ctx, b); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Update groceries, remove dining.
+	input := BudgetsInput{
+		Budgets: []BudgetSuggestion{
+			{CategoryID: "cat_01", Category: "Groceries", Amount: 550.00, Reasoning: "test"},
+		},
+		Remove: []string{"cat_02"},
+	}
+
+	jsonPath := filepath.Join(t.TempDir(), "budgets.json")
+	data, _ := json.Marshal(input)
+	if err := os.WriteFile(jsonPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := WriteBudgets(ctx, repo, jsonPath)
+	if err != nil {
+		t.Fatalf("WriteBudgets() error: %v", err)
+	}
+	if result.Set != 1 {
+		t.Errorf("Set = %d, want 1", result.Set)
+	}
+	if result.Removed != 1 {
+		t.Errorf("Removed = %d, want 1", result.Removed)
+	}
+
+	// Should be exactly 1 budget remaining.
+	budgets, err := repo.Budgets().List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(budgets) != 1 {
+		t.Fatalf("len(budgets) = %d, want 1", len(budgets))
+	}
+	if budgets[0].CategoryName != "Groceries" {
+		t.Errorf("remaining budget category = %q, want %q", budgets[0].CategoryName, "Groceries")
+	}
+}
+
+func TestWriteBudgets_InvalidCategoryID(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	input := BudgetsInput{
+		Budgets: []BudgetSuggestion{
+			{CategoryID: "nonexistent", Category: "Fake", Amount: 100.00, Reasoning: "test"},
+		},
+	}
+
+	jsonPath := filepath.Join(t.TempDir(), "budgets.json")
+	data, _ := json.Marshal(input)
+	if err := os.WriteFile(jsonPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := WriteBudgets(ctx, repo, jsonPath)
+	if err == nil {
+		t.Fatal("WriteBudgets() expected error for invalid category ID, got nil")
 	}
 }
 

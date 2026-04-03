@@ -11,28 +11,35 @@ import (
 )
 
 var writeParsedCmd = &cobra.Command{
-	Use:   "write-parsed <json-file>",
+	Use:   "parsed <json-file>",
 	Short: "Write Claude's email parse results to the database",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runWriteParsed,
 }
 
 var writeCategoriesCmd = &cobra.Command{
-	Use:   "write-categories <json-file>",
+	Use:   "categories <json-file>",
 	Short: "Write Claude's categorization results to the database",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runWriteCategories,
 }
 
 var writeReportCmd = &cobra.Command{
-	Use:   "write-report <json-file>",
+	Use:   "report <json-file>",
 	Short: "Write Claude's narrative report to the database",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runWriteReport,
 }
 
+var writeBudgetsCmd = &cobra.Command{
+	Use:   "budgets <json-file>",
+	Short: "Write Claude's budget suggestions to the database",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runWriteBudgets,
+}
+
 func init() {
-	rootCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd)
+	internalWriteCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd, writeBudgetsCmd)
 }
 
 func runWriteParsed(cmd *cobra.Command, args []string) error {
@@ -92,6 +99,30 @@ func runWriteCategories(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	fmt.Printf("Categorized %d transactions\n", count)
+	return nil
+}
+
+func runWriteBudgets(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	repo, err := repository.New(cfg.Database.Driver, cfg.Database.SQLitePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = repo.Close() }()
+
+	result, err := process.WriteBudgets(ctx, repo, args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Set %d budgets\n", result.Set)
+	if result.Removed > 0 {
+		fmt.Printf("Removed %d budgets\n", result.Removed)
+	}
 	return nil
 }
 

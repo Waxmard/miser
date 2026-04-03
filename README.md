@@ -37,23 +37,20 @@ miser init
 miser init                              Create config, DB, seed categories
 miser import-monarch <csv>              One-time Monarch Money migration
 
-miser sync                              Run all enabled sync sources
-miser sync email                        Poll Gmail for new transaction emails
+miser sync [email | simplefin]          Pull new transactions
+miser setup simplefin <token>           Configure SimpleFIN integration
 
 miser transactions [--from] [--to]      List transactions (aliases: txns, tx)
 miser categories                        List categories with counts
-miser rules                             List categorization rules
 miser accounts                          List accounts
-miser trends                            Monthly spending trends
-miser report                            Latest Claude narrative report
+miser trends                            Monthly spending trends with budgets
+miser trends report                     Latest Claude narrative report
 
-miser process emails                    Print pending emails as JSON (for Claude Code)
-miser process categorize                Print uncategorized txns as JSON
-miser process trends                    Print monthly data as JSON
-miser write-parsed <json>               Write Claude's parse results to DB
-miser write-categories <json>           Write Claude's categorizations to DB
-miser write-report <json>               Write Claude's report to DB
+miser internal process [emails | categorize | trends | budgets]
+miser internal write [parsed | categories | report | budgets] <json>
 ```
+
+The `internal` commands are used by Claude Code cron jobs and are not intended for direct use.
 
 ## How it works
 
@@ -67,9 +64,9 @@ They communicate through the shared SQLite database.
 ```
 Email arrives
   -> miser sync email (stores raw email)
-  -> Claude Code cron: parse email -> miser write-parsed
+  -> Claude Code cron: parse email -> miser internal write parsed
   -> Rule engine auto-categorizes known merchants
-  -> Claude Code cron: categorize unknowns -> miser write-categories
+  -> Claude Code cron: categorize unknowns -> miser internal write categories
   -> miser transactions (query)
 ```
 

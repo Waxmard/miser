@@ -24,11 +24,6 @@ type CategoryTotal struct {
 	Count    int     `json:"count"`
 }
 
-type BudgetEntry struct {
-	Category string  `json:"category"`
-	Budget   float64 `json:"budget"`
-}
-
 // PrintTrends writes monthly spending data as JSON to w.
 func PrintTrends(ctx context.Context, repo repository.Repository, w io.Writer) error {
 	now := time.Now().UTC()

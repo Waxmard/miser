@@ -24,7 +24,7 @@ You are a personal finance analyst for a single user. Your job is to generate a 
 Run these commands and read their output:
 
 ```bash
-miser process trends
+miser internal process trends
 ```
 
 This returns JSON with the structure:
@@ -96,13 +96,13 @@ Key rules for the narrative:
 ### Step 4: Save the report
 
 ```bash
-miser write-report /tmp/miser-report.json
+miser internal write report /tmp/miser-report.json
 ```
 
 Verify it was saved:
 
 ```bash
-miser report
+miser trends report
 ```
 
 This should display the narrative you just wrote.

@@ -205,6 +205,91 @@ func WriteReport(ctx context.Context, repo repository.Repository, jsonPath strin
 	return repo.Reports().Create(ctx, report)
 }
 
+// BudgetsInput is the JSON format Claude writes after analyzing spending and suggesting budgets.
+type BudgetsInput struct {
+	Budgets []BudgetSuggestion `json:"budgets"`
+	Remove  []string           `json:"remove,omitempty"` // category IDs whose budgets should be deleted
+}
+
+// BudgetSuggestion is a single budget recommendation from Claude.
+type BudgetSuggestion struct {
+	CategoryID string  `json:"category_id"`
+	Category   string  `json:"category"`
+	Amount     float64 `json:"amount"`
+	Reasoning  string  `json:"reasoning"`
+}
+
+// WriteBudgetsResult holds counts from a WriteBudgets operation.
+type WriteBudgetsResult struct {
+	Set     int
+	Removed int
+}
+
+// WriteBudgets reads Claude's budget suggestions from a JSON file, upserts budgets,
+// and removes any budgets listed in the Remove field.
+func WriteBudgets(ctx context.Context, repo repository.Repository, jsonPath string) (*WriteBudgetsResult, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("read file: %w", err)
+	}
+
+	var input BudgetsInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		return nil, fmt.Errorf("parse JSON: %w", err)
+	}
+
+	now := time.Now().UTC()
+	result := &WriteBudgetsResult{}
+
+	for i := range input.Budgets {
+		s := &input.Budgets[i]
+
+		// Validate that the category exists.
+		if _, err := repo.Categories().GetByID(ctx, s.CategoryID); err != nil {
+			return result, fmt.Errorf("category %q (%s) not found: %w", s.Category, s.CategoryID, err)
+		}
+
+		// Reuse existing budget ID if one exists for this category.
+		var budgetID string
+		var createdAt time.Time
+		existing, err := repo.Budgets().GetByCategoryID(ctx, s.CategoryID)
+		if err == nil && existing != nil {
+			budgetID = existing.ID
+			createdAt = existing.CreatedAt
+		} else {
+			budgetID = ulid.Make().String()
+			createdAt = now
+		}
+
+		budget := &repository.Budget{
+			ID:            budgetID,
+			CategoryID:    s.CategoryID,
+			MonthlyAmount: s.Amount,
+			CreatedAt:     createdAt,
+			UpdatedAt:     now,
+		}
+
+		if err := repo.Budgets().Set(ctx, budget); err != nil {
+			return result, fmt.Errorf("set budget for %q: %w", s.Category, err)
+		}
+		result.Set++
+	}
+
+	// Remove budgets for categories the user chose to skip.
+	for _, categoryID := range input.Remove {
+		existing, err := repo.Budgets().GetByCategoryID(ctx, categoryID)
+		if err != nil {
+			continue // no budget to remove
+		}
+		if err := repo.Budgets().Delete(ctx, existing.ID); err != nil {
+			return result, fmt.Errorf("delete budget for category %s: %w", categoryID, err)
+		}
+		result.Removed++
+	}
+
+	return result, nil
+}
+
 func nilIfEmpty(s string) *string {
 	if s == "" {
 		return nil
