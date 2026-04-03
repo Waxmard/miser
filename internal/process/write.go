@@ -205,6 +205,72 @@ func WriteReport(ctx context.Context, repo repository.Repository, jsonPath strin
 	return repo.Reports().Create(ctx, report)
 }
 
+// BudgetsInput is the JSON format Claude writes after analyzing spending and suggesting budgets.
+type BudgetsInput struct {
+	Budgets []BudgetSuggestion `json:"budgets"`
+}
+
+// BudgetSuggestion is a single budget recommendation from Claude.
+type BudgetSuggestion struct {
+	CategoryID string  `json:"category_id"`
+	Category   string  `json:"category"`
+	Amount     float64 `json:"amount"`
+	Reasoning  string  `json:"reasoning"`
+}
+
+// WriteBudgets reads Claude's budget suggestions from a JSON file and upserts them.
+// Returns the number of budgets set.
+func WriteBudgets(ctx context.Context, repo repository.Repository, jsonPath string) (int, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return 0, fmt.Errorf("read file: %w", err)
+	}
+
+	var input BudgetsInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		return 0, fmt.Errorf("parse JSON: %w", err)
+	}
+
+	now := time.Now().UTC()
+	count := 0
+
+	for i := range input.Budgets {
+		s := &input.Budgets[i]
+
+		// Validate that the category exists.
+		if _, err := repo.Categories().GetByID(ctx, s.CategoryID); err != nil {
+			return count, fmt.Errorf("category %q (%s) not found: %w", s.Category, s.CategoryID, err)
+		}
+
+		// Reuse existing budget ID if one exists for this category.
+		var budgetID string
+		var createdAt time.Time
+		existing, err := repo.Budgets().GetByCategoryID(ctx, s.CategoryID)
+		if err == nil && existing != nil {
+			budgetID = existing.ID
+			createdAt = existing.CreatedAt
+		} else {
+			budgetID = ulid.Make().String()
+			createdAt = now
+		}
+
+		budget := &repository.Budget{
+			ID:            budgetID,
+			CategoryID:    s.CategoryID,
+			MonthlyAmount: s.Amount,
+			CreatedAt:     createdAt,
+			UpdatedAt:     now,
+		}
+
+		if err := repo.Budgets().Set(ctx, budget); err != nil {
+			return count, fmt.Errorf("set budget for %q: %w", s.Category, err)
+		}
+		count++
+	}
+
+	return count, nil
+}
+
 func nilIfEmpty(s string) *string {
 	if s == "" {
 		return nil

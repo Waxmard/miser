@@ -31,8 +31,15 @@ var writeReportCmd = &cobra.Command{
 	RunE:  runWriteReport,
 }
 
+var writeBudgetsCmd = &cobra.Command{
+	Use:   "write-budgets <json-file>",
+	Short: "Write Claude's budget suggestions to the database",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runWriteBudgets,
+}
+
 func init() {
-	rootCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd)
+	rootCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd, writeBudgetsCmd)
 }
 
 func runWriteParsed(cmd *cobra.Command, args []string) error {
@@ -92,6 +99,27 @@ func runWriteCategories(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	fmt.Printf("Categorized %d transactions\n", count)
+	return nil
+}
+
+func runWriteBudgets(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	repo, err := repository.New(cfg.Database.Driver, cfg.Database.SQLitePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = repo.Close() }()
+
+	count, err := process.WriteBudgets(ctx, repo, args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Set %d budgets\n", count)
 	return nil
 }
 
