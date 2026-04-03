@@ -33,7 +33,7 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	now := time.Now().UTC()
 	curYear, curMonth, _ := now.Date()
@@ -73,10 +73,10 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 	green := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
-	fmt.Fprintf(os.Stdout, "SPENDING TRENDS — %s vs %s\n\n",
+	_, _ = fmt.Fprintf(os.Stdout, "SPENDING TRENDS — %s vs %s\n\n",
 		curStart.Format("January 2006"), prevStart.Format("January 2006"))
 
-	fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s  %s\n",
+	_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s  %s\n",
 		header.Render(pad("CATEGORY", 24)),
 		header.Render(padLeft(curStart.Format("Jan 2006"), 12)),
 		header.Render(padLeft(prevStart.Format("Jan 2006"), 12)),
@@ -122,7 +122,7 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 			}
 		}
 
-		fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s  %s\n",
+		_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s  %s\n",
 			pad(category, 24),
 			padLeft(curAmount, 12),
 			dim.Render(padLeft(prevStr, 12)),

@@ -34,7 +34,7 @@ func runImportMonarch(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	fmt.Println("Parsing Monarch CSV...")
 	result, err := ingest.ImportMonarch(ctx, repo, csvPath)

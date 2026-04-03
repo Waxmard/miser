@@ -31,7 +31,7 @@ func runRules(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	rules, err := repo.Rules().List(ctx)
 	if err != nil {
@@ -46,7 +46,7 @@ func runRules(cmd *cobra.Command, _ []string) error {
 	header := lipgloss.NewStyle().Bold(true)
 	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
-	fmt.Fprintf(os.Stdout, "%s  %s  %s  %s\n",
+	_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s\n",
 		header.Render(pad("PATTERN", 30)),
 		header.Render(pad("CATEGORY", 24)),
 		header.Render(padLeft("HITS", 6)),
@@ -55,7 +55,7 @@ func runRules(cmd *cobra.Command, _ []string) error {
 
 	for i := range rules {
 		r := &rules[i]
-		fmt.Fprintf(os.Stdout, "%s  %s  %s  %s\n",
+		_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s\n",
 			pad(truncate(r.Pattern, 30), 30),
 			pad(truncate(r.CategoryName, 24), 24),
 			padLeft(fmt.Sprintf("%d", r.HitCount), 6),

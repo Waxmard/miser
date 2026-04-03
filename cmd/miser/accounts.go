@@ -31,7 +31,7 @@ func runAccounts(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	accounts, err := repo.Accounts().List(ctx)
 	if err != nil {
@@ -46,7 +46,7 @@ func runAccounts(cmd *cobra.Command, _ []string) error {
 	header := lipgloss.NewStyle().Bold(true)
 	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
-	fmt.Fprintf(os.Stdout, "%s  %s  %s  %s\n",
+	_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s\n",
 		header.Render(pad("NAME", 40)),
 		header.Render(pad("INSTITUTION", 16)),
 		header.Render(pad("TYPE", 12)),
@@ -55,7 +55,7 @@ func runAccounts(cmd *cobra.Command, _ []string) error {
 
 	for i := range accounts {
 		a := &accounts[i]
-		fmt.Fprintf(os.Stdout, "%s  %s  %s  %s\n",
+		_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s\n",
 			pad(truncate(a.Name, 40), 40),
 			pad(a.Institution, 16),
 			pad(a.AccountType, 12),

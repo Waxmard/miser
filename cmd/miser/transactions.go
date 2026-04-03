@@ -53,7 +53,7 @@ func runTransactions(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer repo.Close()
+	defer func() { _ = repo.Close() }()
 
 	filters := &repository.TransactionFilters{
 		Limit: flagLimit,
@@ -122,7 +122,7 @@ func printTransactionTable(txns []repository.Transaction) {
 	header := lipgloss.NewStyle().Bold(true)
 
 	// Print header.
-	fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s\n",
+	_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s\n",
 		header.Render(pad("DATE", 12)),
 		header.Render(pad("MERCHANT", 24)),
 		header.Render(pad("CATEGORY", 22)),
@@ -152,7 +152,7 @@ func printTransactionTable(txns []repository.Transaction) {
 		}
 		source = truncate(source, 18)
 
-		fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s\n",
+		_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s\n",
 			dim.Render(pad(date, 12)),
 			pad(merchant, 24),
 			pad(category, 22),

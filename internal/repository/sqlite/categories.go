@@ -56,7 +56,7 @@ func (r *categoryRepo) List(ctx context.Context) ([]repository.Category, error) 
 	if err != nil {
 		return nil, fmt.Errorf("list categories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var cats []repository.Category
 	for rows.Next() {
@@ -97,7 +97,7 @@ func (r *categoryRepo) ListWithCounts(ctx context.Context, from, to time.Time) (
 	if err != nil {
 		return nil, fmt.Errorf("list categories with counts: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var cats []repository.CategoryWithCount
 	for rows.Next() {
@@ -144,7 +144,7 @@ func (r *categoryRepo) Seed(ctx context.Context, categories []repository.Categor
 	if err != nil {
 		return fmt.Errorf("prepare seed: %w", err)
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	for i := range categories {
 		c := &categories[i]

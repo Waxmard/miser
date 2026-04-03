@@ -50,7 +50,7 @@ func runSetupSimpleFin(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("claim request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -99,7 +99,7 @@ func updateSimpleFinConfig(path, accessURL string) error {
 	if err != nil {
 		return fmt.Errorf("open config: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	enc := toml.NewEncoder(f)
 	return enc.Encode(cfg)

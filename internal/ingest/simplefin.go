@@ -134,7 +134,7 @@ func fetchSimpleFinAccounts(ctx context.Context, accessURL string, startDate tim
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusForbidden {
 		return nil, fmt.Errorf("access denied — access URL may be revoked (run: miser setup simplefin <new-token>)")
