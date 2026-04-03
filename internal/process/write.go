@@ -208,6 +208,7 @@ func WriteReport(ctx context.Context, repo repository.Repository, jsonPath strin
 // BudgetsInput is the JSON format Claude writes after analyzing spending and suggesting budgets.
 type BudgetsInput struct {
 	Budgets []BudgetSuggestion `json:"budgets"`
+	Remove  []string           `json:"remove,omitempty"` // category IDs whose budgets should be deleted
 }
 
 // BudgetSuggestion is a single budget recommendation from Claude.
@@ -218,28 +219,34 @@ type BudgetSuggestion struct {
 	Reasoning  string  `json:"reasoning"`
 }
 
-// WriteBudgets reads Claude's budget suggestions from a JSON file and upserts them.
-// Returns the number of budgets set.
-func WriteBudgets(ctx context.Context, repo repository.Repository, jsonPath string) (int, error) {
+// WriteBudgetsResult holds counts from a WriteBudgets operation.
+type WriteBudgetsResult struct {
+	Set     int
+	Removed int
+}
+
+// WriteBudgets reads Claude's budget suggestions from a JSON file, upserts budgets,
+// and removes any budgets listed in the Remove field.
+func WriteBudgets(ctx context.Context, repo repository.Repository, jsonPath string) (*WriteBudgetsResult, error) {
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
-		return 0, fmt.Errorf("read file: %w", err)
+		return nil, fmt.Errorf("read file: %w", err)
 	}
 
 	var input BudgetsInput
 	if err := json.Unmarshal(data, &input); err != nil {
-		return 0, fmt.Errorf("parse JSON: %w", err)
+		return nil, fmt.Errorf("parse JSON: %w", err)
 	}
 
 	now := time.Now().UTC()
-	count := 0
+	result := &WriteBudgetsResult{}
 
 	for i := range input.Budgets {
 		s := &input.Budgets[i]
 
 		// Validate that the category exists.
 		if _, err := repo.Categories().GetByID(ctx, s.CategoryID); err != nil {
-			return count, fmt.Errorf("category %q (%s) not found: %w", s.Category, s.CategoryID, err)
+			return result, fmt.Errorf("category %q (%s) not found: %w", s.Category, s.CategoryID, err)
 		}
 
 		// Reuse existing budget ID if one exists for this category.
@@ -263,12 +270,24 @@ func WriteBudgets(ctx context.Context, repo repository.Repository, jsonPath stri
 		}
 
 		if err := repo.Budgets().Set(ctx, budget); err != nil {
-			return count, fmt.Errorf("set budget for %q: %w", s.Category, err)
+			return result, fmt.Errorf("set budget for %q: %w", s.Category, err)
 		}
-		count++
+		result.Set++
 	}
 
-	return count, nil
+	// Remove budgets for categories the user chose to skip.
+	for _, categoryID := range input.Remove {
+		existing, err := repo.Budgets().GetByCategoryID(ctx, categoryID)
+		if err != nil {
+			continue // no budget to remove
+		}
+		if err := repo.Budgets().Delete(ctx, existing.ID); err != nil {
+			return result, fmt.Errorf("delete budget for category %s: %w", categoryID, err)
+		}
+		result.Removed++
+	}
+
+	return result, nil
 }
 
 func nilIfEmpty(s string) *string {

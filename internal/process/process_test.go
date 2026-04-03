@@ -427,12 +427,12 @@ func TestWriteBudgets(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	count, err := WriteBudgets(ctx, repo, jsonPath)
+	result, err := WriteBudgets(ctx, repo, jsonPath)
 	if err != nil {
 		t.Fatalf("WriteBudgets() error: %v", err)
 	}
-	if count != 2 {
-		t.Errorf("count = %d, want 2", count)
+	if result.Set != 2 {
+		t.Errorf("Set = %d, want 2", result.Set)
 	}
 
 	// Verify no duplicates -- should be exactly 2 budgets.
@@ -496,12 +496,12 @@ func TestWriteBudgets_UpdateExisting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	count, err := WriteBudgets(ctx, repo, jsonPath)
+	result, err := WriteBudgets(ctx, repo, jsonPath)
 	if err != nil {
 		t.Fatalf("WriteBudgets() error: %v", err)
 	}
-	if count != 1 {
-		t.Errorf("count = %d, want 1", count)
+	if result.Set != 1 {
+		t.Errorf("Set = %d, want 1", result.Set)
 	}
 
 	// Should be exactly 1 budget, not 2.
@@ -517,6 +517,68 @@ func TestWriteBudgets_UpdateExisting(t *testing.T) {
 	}
 	if budgets[0].MonthlyAmount != 550.00 {
 		t.Errorf("MonthlyAmount = %f, want 550.00", budgets[0].MonthlyAmount)
+	}
+}
+
+func TestWriteBudgets_Remove(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	groceries := &repository.Category{ID: "cat_01", Name: "Groceries", CreatedAt: now}
+	dining := &repository.Category{ID: "cat_02", Name: "Dining", CreatedAt: now}
+	if err := repo.Categories().Create(ctx, groceries); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Categories().Create(ctx, dining); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create budgets for both categories.
+	for _, b := range []*repository.Budget{
+		{ID: "bud_01", CategoryID: "cat_01", MonthlyAmount: 500.00, CreatedAt: now, UpdatedAt: now},
+		{ID: "bud_02", CategoryID: "cat_02", MonthlyAmount: 200.00, CreatedAt: now, UpdatedAt: now},
+	} {
+		if err := repo.Budgets().Set(ctx, b); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Update groceries, remove dining.
+	input := BudgetsInput{
+		Budgets: []BudgetSuggestion{
+			{CategoryID: "cat_01", Category: "Groceries", Amount: 550.00, Reasoning: "test"},
+		},
+		Remove: []string{"cat_02"},
+	}
+
+	jsonPath := filepath.Join(t.TempDir(), "budgets.json")
+	data, _ := json.Marshal(input)
+	if err := os.WriteFile(jsonPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := WriteBudgets(ctx, repo, jsonPath)
+	if err != nil {
+		t.Fatalf("WriteBudgets() error: %v", err)
+	}
+	if result.Set != 1 {
+		t.Errorf("Set = %d, want 1", result.Set)
+	}
+	if result.Removed != 1 {
+		t.Errorf("Removed = %d, want 1", result.Removed)
+	}
+
+	// Should be exactly 1 budget remaining.
+	budgets, err := repo.Budgets().List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(budgets) != 1 {
+		t.Fatalf("len(budgets) = %d, want 1", len(budgets))
+	}
+	if budgets[0].CategoryName != "Groceries" {
+		t.Errorf("remaining budget category = %q, want %q", budgets[0].CategoryName, "Groceries")
 	}
 }
 

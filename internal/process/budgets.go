@@ -30,6 +30,12 @@ type BudgetCategoryData struct {
 	Max        float64           `json:"max"`
 }
 
+// BudgetEntry is a category's existing budget amount.
+type BudgetEntry struct {
+	Category string  `json:"category"`
+	Budget   float64 `json:"budget"`
+}
+
 // MonthlySpending is one month's spending for one category.
 type MonthlySpending struct {
 	Month string  `json:"month"`

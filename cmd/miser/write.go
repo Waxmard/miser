@@ -115,11 +115,14 @@ func runWriteBudgets(cmd *cobra.Command, args []string) error {
 	}
 	defer func() { _ = repo.Close() }()
 
-	count, err := process.WriteBudgets(ctx, repo, args[0])
+	result, err := process.WriteBudgets(ctx, repo, args[0])
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Set %d budgets\n", count)
+	fmt.Printf("Set %d budgets\n", result.Set)
+	if result.Removed > 0 {
+		fmt.Printf("Removed %d budgets\n", result.Removed)
+	}
 	return nil
 }
 

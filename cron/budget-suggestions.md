@@ -88,7 +88,7 @@ Gas              $95         $80       $120      $100       $100        Current 
 
 After presenting the table, ask:
 
-> Any adjustments? You can say things like "lower dining to $150", "add a 10% buffer to groceries", or "skip entertainment". Say "looks good" to apply these budgets.
+> Any adjustments? You can say things like "lower dining to $150", "add a 10% buffer to groceries", "skip entertainment", or "remove the entertainment budget". Say "looks good" to apply these budgets.
 
 ### Step 5: Iterate
 
@@ -112,15 +112,16 @@ Once the user approves, write a JSON file to `/tmp/miser-budgets.json` with this
       "amount": 550.00,
       "reasoning": "6-month average is $512 with a max of $610 in Dec (holiday cooking). Setting at $550 to cover typical variance."
     }
-  ]
+  ],
+  "remove": ["01HXZ..."]
 }
 ```
 
 Key rules for the output:
-- `amount` must be a positive number
+- `budgets` contains categories the user approved -- `amount` must be a positive number
+- `remove` contains category IDs whose existing budgets the user wants deleted (e.g., categories they said "remove" or "delete" for). Omit if empty.
 - `category_id` must match exactly from the input data -- do not fabricate IDs
 - `reasoning` should be 1-2 sentences referencing actual data points
-- Only include categories the user approved
 
 Then run:
 
@@ -128,7 +129,7 @@ Then run:
 miser write-budgets /tmp/miser-budgets.json
 ```
 
-Verify they were saved:
+Verify they were saved by running `miser trends` (the human-readable spending table with budget columns -- distinct from `miser process trends` which outputs raw JSON for cron jobs):
 
 ```bash
 miser trends
