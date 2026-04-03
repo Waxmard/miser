@@ -6,13 +6,14 @@ Claude Code cron job that generates a weekly spending snapshot every Monday.
 
 ```crontab
 # Every Monday at 9am
-0 9 * * 1 claude --bare -p "$(cat /path/to/miser/cron/weekly-report.md)" --model haiku --allowedTools "Bash,Read,Write"
+0 9 * * 1 claude -p "Follow the instructions below exactly. Execute each step in order. Do not ask questions. $(cat /path/to/miser/cron/weekly-report.md)" --model sonnet --allowedTools "Bash,Read,Write"
 ```
 
 Flags:
-- `--bare` — skips hooks, MCP servers, CLAUDE.md, auto-memory for reliable unattended execution
-- `--model haiku` — Haiku is sufficient for this task and much faster/cheaper than Opus
+- `--model sonnet` — Sonnet follows multi-step instructions reliably; Haiku tends to ask clarifying questions instead of executing
 - `--allowedTools "Bash,Read,Write"` — pre-approves tools so there are no interactive permission prompts
+
+Note: `--bare` is not used because it strips authentication context needed for the CLI.
 
 ## Prompt
 
