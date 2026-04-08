@@ -112,3 +112,19 @@ make lint           # Run golangci-lint
 make check          # fmt + lint + vet + test
 make help           # Show all targets
 ```
+
+## Roadmap
+
+**In progress**
+- Budget management with Claude-powered suggestions
+
+**Next**
+- Transaction review workflow — weekly digest of new categorizations with approve/change loop
+- Subcategories (housing → rent/parking/utilities; flexible → bars/entertainment; subscriptions)
+
+**Later**
+- Custom accounts with manual updates (stock options, car value, retirement balance)
+- Amazon & Venmo purchase categorization
+- Net worth / liquid net worth tracking
+- Investment growth view with S&P 500 comparison
+- Web UI
