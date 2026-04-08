@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/Waxmard/miser/compare/v1.0.0...v2.0.0) (2026-04-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* add budget suggestion workflow and move Claude Code commands under internal ([#10](https://github.com/Waxmard/miser/issues/10))
+
+### Features
+
+* add budget suggestion workflow and move Claude Code commands under internal ([#10](https://github.com/Waxmard/miser/issues/10)) ([9eb23a8](https://github.com/Waxmard/miser/commit/9eb23a8837fe6c53773f6e5f24c46fa93ae3eb0c))
+
 ## [1.0.0](https://github.com/Waxmard/miser/compare/v0.2.0...v1.0.0) (2026-04-03)
 
 
