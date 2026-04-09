@@ -39,8 +39,14 @@ var processBudgetsCmd = &cobra.Command{
 	RunE:  runProcessBudgets,
 }
 
+var processReviewCmd = &cobra.Command{
+	Use:   "review",
+	Short: "Print transactions pending review as JSON",
+	RunE:  runProcessReview,
+}
+
 func init() {
-	processCmd.AddCommand(processEmailsCmd, processCategorizeCmd, processTrendsCmd, processBudgetsCmd)
+	processCmd.AddCommand(processEmailsCmd, processCategorizeCmd, processTrendsCmd, processBudgetsCmd, processReviewCmd)
 	internalCmd.AddCommand(processCmd)
 }
 
@@ -106,4 +112,20 @@ func runProcessBudgets(cmd *cobra.Command, _ []string) error {
 	defer func() { _ = repo.Close() }()
 
 	return process.PrintBudgetData(ctx, repo, os.Stdout)
+}
+
+func runProcessReview(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	repo, err := repository.New(cfg.Database.Driver, cfg.Database.SQLitePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = repo.Close() }()
+
+	return process.PrintPendingReview(ctx, repo, os.Stdout)
 }

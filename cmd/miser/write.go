@@ -38,8 +38,15 @@ var writeBudgetsCmd = &cobra.Command{
 	RunE:  runWriteBudgets,
 }
 
+var writeReviewCmd = &cobra.Command{
+	Use:   "review <json-file>",
+	Short: "Write review decisions to the database",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runWriteReview,
+}
+
 func init() {
-	internalWriteCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd, writeBudgetsCmd)
+	internalWriteCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd, writeBudgetsCmd, writeReviewCmd)
 }
 
 func runWriteParsed(cmd *cobra.Command, args []string) error {
@@ -123,6 +130,27 @@ func runWriteBudgets(cmd *cobra.Command, args []string) error {
 	if result.Removed > 0 {
 		fmt.Printf("Removed %d budgets\n", result.Removed)
 	}
+	return nil
+}
+
+func runWriteReview(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	repo, err := repository.New(cfg.Database.Driver, cfg.Database.SQLitePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = repo.Close() }()
+
+	count, err := process.WriteReview(ctx, repo, args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Resolved %d transactions\n", count)
 	return nil
 }
 

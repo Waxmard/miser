@@ -37,6 +37,7 @@ type TransactionRepository interface {
 	Delete(ctx context.Context, id string) error
 	GetUncategorized(ctx context.Context, limit int) ([]Transaction, error)
 	GetRecentCategorized(ctx context.Context, limit int) ([]Transaction, error)
+	GetPendingReview(ctx context.Context, limit int) ([]Transaction, error)
 }
 
 type CategoryRepository interface {

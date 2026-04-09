@@ -243,8 +243,8 @@ func TestWriteCategories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Status != "categorized" {
-		t.Errorf("Status = %q, want %q", updated.Status, "categorized")
+	if updated.Status != "pending_review" {
+		t.Errorf("Status = %q, want %q", updated.Status, "pending_review")
 	}
 	if updated.CategoryName != "Liquids" {
 		t.Errorf("CategoryName = %q, want %q", updated.CategoryName, "Liquids")

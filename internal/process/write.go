@@ -150,7 +150,7 @@ func WriteCategories(ctx context.Context, repo repository.Repository, jsonPath s
 		}
 
 		txn.CategoryID = &cat.ID
-		txn.Status = "categorized"
+		txn.Status = "pending_review"
 		categorizedBy := "claude"
 		txn.CategorizedBy = &categorizedBy
 		txn.Confidence = &r.Confidence
@@ -288,6 +288,68 @@ func WriteBudgets(ctx context.Context, repo repository.Repository, jsonPath stri
 	}
 
 	return result, nil
+}
+
+// ReviewInput is the JSON format Claude writes after reviewing pending transactions.
+type ReviewInput struct {
+	Results []ReviewResult `json:"results"`
+}
+
+type ReviewResult struct {
+	TransactionID string `json:"transaction_id"`
+	Action        string `json:"action"`             // "approve" or "change"
+	Category      string `json:"category,omitempty"` // required when action is "change"
+}
+
+// WriteReview reads Claude's review decisions from a JSON file and finalizes transactions.
+// Returns the number of transactions resolved.
+func WriteReview(ctx context.Context, repo repository.Repository, jsonPath string) (int, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return 0, fmt.Errorf("read file: %w", err)
+	}
+
+	var input ReviewInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		return 0, fmt.Errorf("parse JSON: %w", err)
+	}
+
+	now := time.Now().UTC()
+	resolved := 0
+
+	for i := range input.Results {
+		r := &input.Results[i]
+
+		txn, err := repo.Transactions().GetByID(ctx, r.TransactionID)
+		if err != nil {
+			return resolved, fmt.Errorf("transaction %s not found: %w", r.TransactionID, err)
+		}
+
+		switch r.Action {
+		case "approve":
+			txn.Status = "categorized"
+			// categorized_by stays as "claude"
+		case "change":
+			cat, err := repo.Categories().GetByName(ctx, r.Category)
+			if err != nil {
+				return resolved, fmt.Errorf("category %q not found: %w", r.Category, err)
+			}
+			txn.CategoryID = &cat.ID
+			txn.Status = "categorized"
+			categorizedBy := "manual"
+			txn.CategorizedBy = &categorizedBy
+		default:
+			return resolved, fmt.Errorf("unknown action %q for transaction %s", r.Action, r.TransactionID)
+		}
+
+		txn.UpdatedAt = now
+		if err := repo.Transactions().Update(ctx, txn); err != nil {
+			return resolved, fmt.Errorf("update transaction %s: %w", r.TransactionID, err)
+		}
+		resolved++
+	}
+
+	return resolved, nil
 }
 
 func nilIfEmpty(s string) *string {
