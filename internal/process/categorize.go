@@ -48,6 +48,8 @@ func PrintUncategorized(ctx context.Context, repo repository.Repository, w io.Wr
 
 	out := UncategorizedOutput{
 		UncategorizedCount: len(txns),
+		Transactions:       []UncategorizedTxn{},
+		RecentExamples:     []CategorizedExample{},
 	}
 
 	for i := range txns {

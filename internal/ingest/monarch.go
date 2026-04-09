@@ -78,14 +78,13 @@ func ImportMonarch(ctx context.Context, repo repository.Repository, csvPath stri
 	}
 	result.Transactions = inserted
 
-	// Extract and create rules.
+	// Extract and create rules. Ignore errors from duplicate rules.
 	rules := extractRules(kept, categoryMap)
 	for i := range rules {
-		if err := repo.Rules().Create(ctx, &rules[i]); err != nil {
-			return nil, fmt.Errorf("create rule %q: %w", rules[i].Pattern, err)
+		if err := repo.Rules().Create(ctx, &rules[i]); err == nil {
+			result.Rules++
 		}
 	}
-	result.Rules = len(rules)
 
 	return result, nil
 }

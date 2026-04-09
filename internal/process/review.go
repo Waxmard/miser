@@ -40,6 +40,8 @@ func PrintPendingReview(ctx context.Context, repo repository.Repository, w io.Wr
 
 	out := PendingReviewOutput{
 		PendingCount: len(txns),
+		Transactions: []PendingReviewTxn{},
+		Categories:   []string{},
 	}
 
 	for i := range txns {
