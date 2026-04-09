@@ -115,11 +115,7 @@ make help           # Show all targets
 
 ## Roadmap
 
-**In progress**
-- Budget management with Claude-powered suggestions
-
 **Next**
-- Transaction review workflow — weekly digest of new categorizations with approve/change loop
 - Subcategories (housing → rent/parking/utilities; flexible → bars/entertainment; subscriptions)
 
 **Later**

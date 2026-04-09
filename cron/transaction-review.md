@@ -50,7 +50,12 @@ This returns JSON with the structure:
       "description": "LYFT *RIDE SAN FRANCISCO"
     }
   ],
-  "categories": ["Groceries", "Transportation", "Dining", "Housing", ...]
+  "categories": [
+    { "name": "Housing", "subcategories": ["Rent", "Parking", "Utilities"] },
+    { "name": "Food", "subcategories": ["Groceries", "Restaurants"] },
+    { "name": "Transportation" },
+    { "name": "Flexible", "subcategories": ["Bars", "Entertainment"] }
+  ]
 }
 ```
 
@@ -66,7 +71,7 @@ For each transaction, decide:
 Use these guidelines:
 - Trust high-confidence categorizations (≥ 0.85) unless obviously wrong
 - Pay close attention to low-confidence ones (< 0.70) — these are most likely to be miscategorized
-- If a transaction could fit multiple categories, pick the most specific one
+- Prefer the most specific subcategory (e.g. "Rent" over "Housing"), but use the parent if the subcategory is ambiguous
 - Amounts are negative for expenses
 
 ### Step 3: Write your decisions

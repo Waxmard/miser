@@ -352,6 +352,65 @@ func WriteReview(ctx context.Context, repo repository.Repository, jsonPath strin
 	return resolved, nil
 }
 
+// HierarchyInput is the JSON format Claude writes to organize categories into groups.
+type HierarchyInput struct {
+	Groups []HierarchyGroup `json:"groups"`
+}
+
+// HierarchyGroup defines a parent category and which existing categories belong under it.
+type HierarchyGroup struct {
+	Name     string   `json:"name"`     // Parent category name (may not yet exist)
+	Children []string `json:"children"` // Existing category names to nest under it
+}
+
+// WriteHierarchy reads Claude's hierarchy suggestions from a JSON file and applies them.
+// Parent categories are created if they don't exist. Children have their parent_id set.
+// Returns the number of child categories organized.
+func WriteHierarchy(ctx context.Context, repo repository.Repository, jsonPath string) (int, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return 0, fmt.Errorf("read file: %w", err)
+	}
+
+	var input HierarchyInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		return 0, fmt.Errorf("parse JSON: %w", err)
+	}
+
+	now := time.Now().UTC()
+	organized := 0
+
+	for i := range input.Groups {
+		g := &input.Groups[i]
+
+		parent, err := repo.Categories().GetByName(ctx, g.Name)
+		if err != nil {
+			parent = &repository.Category{
+				ID:        ulid.Make().String(),
+				Name:      g.Name,
+				CreatedAt: now,
+			}
+			if err := repo.Categories().Create(ctx, parent); err != nil {
+				return organized, fmt.Errorf("create parent category %q: %w", g.Name, err)
+			}
+		}
+
+		for _, childName := range g.Children {
+			child, err := repo.Categories().GetByName(ctx, childName)
+			if err != nil {
+				return organized, fmt.Errorf("child category %q not found: %w", childName, err)
+			}
+			child.ParentID = &parent.ID
+			if err := repo.Categories().Update(ctx, child); err != nil {
+				return organized, fmt.Errorf("update category %q: %w", childName, err)
+			}
+			organized++
+		}
+	}
+
+	return organized, nil
+}
+
 func nilIfEmpty(s string) *string {
 	if s == "" {
 		return nil

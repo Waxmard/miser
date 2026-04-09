@@ -45,8 +45,15 @@ var writeReviewCmd = &cobra.Command{
 	RunE:  runWriteReview,
 }
 
+var writeHierarchyCmd = &cobra.Command{
+	Use:   "hierarchy <json-file>",
+	Short: "Apply Claude's category hierarchy suggestions to the database",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runWriteHierarchy,
+}
+
 func init() {
-	internalWriteCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd, writeBudgetsCmd, writeReviewCmd)
+	internalWriteCmd.AddCommand(writeParsedCmd, writeCategoriesCmd, writeReportCmd, writeBudgetsCmd, writeReviewCmd, writeHierarchyCmd)
 }
 
 func runWriteParsed(cmd *cobra.Command, args []string) error {
@@ -151,6 +158,27 @@ func runWriteReview(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	fmt.Printf("Resolved %d transactions\n", count)
+	return nil
+}
+
+func runWriteHierarchy(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	repo, err := repository.New(cfg.Database.Driver, cfg.Database.SQLitePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = repo.Close() }()
+
+	count, err := process.WriteHierarchy(ctx, repo, args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Organized %d categories\n", count)
 	return nil
 }
 

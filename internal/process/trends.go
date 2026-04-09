@@ -19,9 +19,59 @@ type TrendsOutput struct {
 }
 
 type CategoryTotal struct {
-	Category string  `json:"category"`
-	Total    float64 `json:"total"`
-	Count    int     `json:"count"`
+	Category      string          `json:"category"`
+	Total         float64         `json:"total"`
+	Count         int             `json:"count"`
+	Subcategories []CategoryTotal `json:"subcategories,omitempty"`
+}
+
+// buildHierarchicalTotals organizes a flat CategoryWithCount list into a tree.
+// Parent totals are rolled up from their children, and children are nested inside
+// the parent's Subcategories field. Categories with zero transactions are omitted.
+func buildHierarchicalTotals(cats []repository.CategoryWithCount) []CategoryTotal {
+	// Roll up child totals into parents.
+	byID := make(map[string]*repository.CategoryWithCount, len(cats))
+	for i := range cats {
+		byID[cats[i].ID] = &cats[i]
+	}
+	for i := range cats {
+		c := &cats[i]
+		if c.ParentID != nil {
+			if parent, ok := byID[*c.ParentID]; ok {
+				parent.TotalAmount += c.TotalAmount
+				parent.TransactionCount += c.TransactionCount
+			}
+		}
+	}
+
+	var result []CategoryTotal
+	for i := range cats {
+		c := &cats[i]
+		if c.ParentID != nil {
+			continue // appears nested under parent
+		}
+		if c.TransactionCount == 0 {
+			continue
+		}
+		ct := CategoryTotal{
+			Category: c.Name,
+			Total:    c.TotalAmount,
+			Count:    c.TransactionCount,
+		}
+		for j := range cats {
+			child := &cats[j]
+			if child.ParentID == nil || *child.ParentID != c.ID || child.TransactionCount == 0 {
+				continue
+			}
+			ct.Subcategories = append(ct.Subcategories, CategoryTotal{
+				Category: child.Name,
+				Total:    child.TotalAmount,
+				Count:    child.TransactionCount,
+			})
+		}
+		result = append(result, ct)
+	}
+	return result
 }
 
 // PrintTrends writes monthly spending data as JSON to w.
@@ -54,27 +104,8 @@ func PrintTrends(ctx context.Context, repo repository.Repository, w io.Writer) e
 		PreviousMonth: prevStart.Format("2006-01"),
 	}
 
-	for i := range currentCats {
-		c := &currentCats[i]
-		if c.TransactionCount > 0 {
-			out.Current = append(out.Current, CategoryTotal{
-				Category: c.Name,
-				Total:    c.TotalAmount,
-				Count:    c.TransactionCount,
-			})
-		}
-	}
-
-	for i := range previousCats {
-		c := &previousCats[i]
-		if c.TransactionCount > 0 {
-			out.Previous = append(out.Previous, CategoryTotal{
-				Category: c.Name,
-				Total:    c.TotalAmount,
-				Count:    c.TransactionCount,
-			})
-		}
-	}
+	out.Current = buildHierarchicalTotals(currentCats)
+	out.Previous = buildHierarchicalTotals(previousCats)
 
 	for i := range budgets {
 		out.Budgets = append(out.Budgets, BudgetEntry{

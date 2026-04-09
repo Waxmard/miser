@@ -12,7 +12,7 @@ import (
 type PendingReviewOutput struct {
 	PendingCount int                `json:"pending_count"`
 	Transactions []PendingReviewTxn `json:"transactions"`
-	Categories   []string           `json:"categories"`
+	Categories   []CategoryGroup    `json:"categories"`
 }
 
 type PendingReviewTxn struct {
@@ -41,7 +41,7 @@ func PrintPendingReview(ctx context.Context, repo repository.Repository, w io.Wr
 	out := PendingReviewOutput{
 		PendingCount: len(txns),
 		Transactions: []PendingReviewTxn{},
-		Categories:   []string{},
+		Categories:   buildCategoryGroups(cats),
 	}
 
 	for i := range txns {
@@ -63,10 +63,6 @@ func PrintPendingReview(ctx context.Context, repo repository.Repository, w io.Wr
 			pt.Description = *t.Description
 		}
 		out.Transactions = append(out.Transactions, pt)
-	}
-
-	for i := range cats {
-		out.Categories = append(out.Categories, cats[i].Name)
 	}
 
 	enc := json.NewEncoder(w)

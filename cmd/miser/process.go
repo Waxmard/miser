@@ -45,8 +45,14 @@ var processReviewCmd = &cobra.Command{
 	RunE:  runProcessReview,
 }
 
+var processHierarchyCmd = &cobra.Command{
+	Use:   "hierarchy",
+	Short: "Print flat category list for Claude to suggest groupings as JSON",
+	RunE:  runProcessHierarchy,
+}
+
 func init() {
-	processCmd.AddCommand(processEmailsCmd, processCategorizeCmd, processTrendsCmd, processBudgetsCmd, processReviewCmd)
+	processCmd.AddCommand(processEmailsCmd, processCategorizeCmd, processTrendsCmd, processBudgetsCmd, processReviewCmd, processHierarchyCmd)
 	internalCmd.AddCommand(processCmd)
 }
 
@@ -128,4 +134,20 @@ func runProcessReview(cmd *cobra.Command, _ []string) error {
 	defer func() { _ = repo.Close() }()
 
 	return process.PrintPendingReview(ctx, repo, os.Stdout)
+}
+
+func runProcessHierarchy(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	repo, err := repository.New(cfg.Database.Driver, cfg.Database.SQLitePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = repo.Close() }()
+
+	return process.PrintHierarchy(ctx, repo, os.Stdout)
 }

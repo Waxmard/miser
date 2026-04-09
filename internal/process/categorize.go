@@ -12,7 +12,7 @@ import (
 type UncategorizedOutput struct {
 	UncategorizedCount int                  `json:"uncategorized_count"`
 	Transactions       []UncategorizedTxn   `json:"transactions"`
-	Categories         []string             `json:"categories"`
+	Categories         []CategoryGroup      `json:"categories"`
 	RecentExamples     []CategorizedExample `json:"recent_examples"`
 }
 
@@ -49,6 +49,7 @@ func PrintUncategorized(ctx context.Context, repo repository.Repository, w io.Wr
 	out := UncategorizedOutput{
 		UncategorizedCount: len(txns),
 		Transactions:       []UncategorizedTxn{},
+		Categories:         buildCategoryGroups(cats),
 		RecentExamples:     []CategorizedExample{},
 	}
 
@@ -64,10 +65,6 @@ func PrintUncategorized(ctx context.Context, repo repository.Repository, w io.Wr
 			ut.Description = *t.Description
 		}
 		out.Transactions = append(out.Transactions, ut)
-	}
-
-	for i := range cats {
-		out.Categories = append(out.Categories, cats[i].Name)
 	}
 
 	for i := range recent {

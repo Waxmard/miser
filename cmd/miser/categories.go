@@ -58,20 +58,44 @@ func runCategories(cmd *cobra.Command, _ []string) error {
 		header.Render(padLeft("TOTAL", 12)),
 	)
 
+	// Build child map for hierarchy rendering.
+	type catRow struct {
+		name  string
+		count int
+		total float64
+	}
+	childrenOf := make(map[string][]catRow)
 	for i := range cats {
 		c := &cats[i]
-		countStr := fmt.Sprintf("%d", c.TransactionCount)
-		totalStr := formatAmount(c.TotalAmount)
-		if c.TransactionCount == 0 {
+		if c.ParentID != nil {
+			childrenOf[*c.ParentID] = append(childrenOf[*c.ParentID], catRow{c.Name, c.TransactionCount, c.TotalAmount})
+		}
+	}
+
+	printRow := func(name string, count int, total float64, indent string) {
+		countStr := fmt.Sprintf("%d", count)
+		totalStr := formatAmount(total)
+		if count == 0 {
 			countStr = dim.Render(countStr)
 			totalStr = dim.Render(totalStr)
 		}
-
+		label := indent + truncate(name, 28-len(indent))
 		_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s\n",
-			pad(truncate(c.Name, 28), 28),
+			pad(label, 28),
 			padLeft(countStr, 8),
 			padLeft(totalStr, 12),
 		)
+	}
+
+	for i := range cats {
+		c := &cats[i]
+		if c.ParentID != nil {
+			continue // printed under parent
+		}
+		printRow(c.Name, c.TransactionCount, c.TotalAmount, "")
+		for _, child := range childrenOf[c.ID] {
+			printRow(child.name, child.count, child.total, "  ")
+		}
 	}
 
 	return nil
