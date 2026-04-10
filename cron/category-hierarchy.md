@@ -23,35 +23,51 @@ You are organizing personal finance categories into a logical hierarchy for a sp
 miser internal process hierarchy
 ```
 
-This returns JSON:
+This returns JSON showing the existing hierarchy state:
 
 ```json
 {
   "category_count": 24,
-  "categories": [
-    { "id": "01HX...", "name": "Groceries" },
-    { "id": "01HX...", "name": "Rent" },
-    { "id": "01HX...", "name": "Netflix" },
-    ...
+  "current_groups": [
+    {
+      "name": "Food & Drink",
+      "children": ["Groceries", "Restaurants", "Bars/Drinking"]
+    },
+    {
+      "name": "Housing",
+      "children": ["Rent", "Gas & Electric", "Internet"]
+    }
+  ],
+  "ungrouped": [
+    { "id": "01HX...", "name": "NewCategory" },
+    { "id": "01HX...", "name": "AnotherNew" }
   ]
 }
 ```
 
+- `current_groups` — categories already organized into parent groups
+- `ungrouped` — categories not yet assigned to any group
+- `category_count` — total number of non-Uncategorized leaf categories
+
 If `category_count` is 0, there is nothing to organize — stop here.
+
+If `ungrouped` is empty, the hierarchy is already complete. Print a summary table of the current groups and their children, then stop — do not write any files or run any further commands.
 
 ### Step 2: Design a hierarchy
 
-Group the categories into logical parent groups. Guidelines:
+Start from the existing groups in `current_groups` and place any `ungrouped` categories into appropriate groups. You may also reorganize existing groups if a better structure makes sense.
+
+Guidelines:
 
 - Aim for **4–8 parent groups** covering all categories
-- Parent group names should be new (not already in the category list)
-- Every category in the list should appear as a child of exactly one group, or be left ungrouped if it doesn't fit
+- Parent group names should not be leaf category names
+- Every category should appear as a child of exactly one group, or be left ungrouped if it truly doesn't fit
 - Do **not** include "Uncategorized" in any group
-- Common useful groups: Housing, Food, Transportation, Flexible, Subscriptions, Health, Income, Savings
+- Common useful groups: Housing, Food & Drink, Transportation, Health & Wellness, Entertainment, Finance, Shopping, Income, Personal
 
 ### Step 3: Write your hierarchy
 
-Write a JSON file to `/tmp/miser-hierarchy.json` with this structure:
+Write a JSON file to `/tmp/miser-hierarchy.json` with the **complete** hierarchy (all groups and all children, not just changes):
 
 ```json
 {
@@ -61,16 +77,8 @@ Write a JSON file to `/tmp/miser-hierarchy.json` with this structure:
       "children": ["Rent", "Parking", "Utilities", "Home Improvement"]
     },
     {
-      "name": "Food",
+      "name": "Food & Drink",
       "children": ["Groceries", "Restaurants", "Coffee Shops"]
-    },
-    {
-      "name": "Subscriptions",
-      "children": ["Netflix", "Spotify", "Amazon Prime", "iCloud"]
-    },
-    {
-      "name": "Flexible",
-      "children": ["Bars", "Entertainment", "Shopping", "Clothing"]
     },
     {
       "name": "Transportation",
