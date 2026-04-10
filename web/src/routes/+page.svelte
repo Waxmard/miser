@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type TrendsResponse, type Transaction, type Report } from '$lib/api';
+	import MerchantIcon from '$lib/MerchantIcon.svelte';
 
 	let trends: TrendsResponse | null = null;
 	let recentTxns: Transaction[] = [];
@@ -12,7 +13,7 @@
 		try {
 			[trends, recentTxns, report] = await Promise.all([
 				api.trends(),
-				api.transactions({ limit: '10' }),
+				api.transactions({ limit: 10 }),
 				api.latestReport()
 			]);
 		} catch (e) {
@@ -101,8 +102,11 @@
 					{#each recentTxns as txn}
 						<li class="txn-row">
 							<div class="txn-left">
-								<span class="txn-merchant">{txn.merchant_clean ?? txn.merchant}</span>
-								<span class="txn-cat">{txn.category_name || 'Uncategorized'}</span>
+								<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={34} />
+								<div class="txn-info">
+									<span class="txn-merchant">{txn.merchant_clean ?? txn.merchant}</span>
+									<span class="txn-cat">{txn.category_name || 'Uncategorized'}</span>
+								</div>
 							</div>
 							<div class="txn-right">
 								<span class="txn-amount {amountClass(txn.amount)}">{formatAmount(txn.amount)}</span>
@@ -226,14 +230,14 @@
 	}
 
 	.cat-name {
-		font-size: 14px;
+		font-size: 15px;
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
 	.cat-amount {
 		font-family: var(--font-mono);
-		font-size: 14px;
+		font-size: 15px;
 	}
 
 	.budget-bar-row {
@@ -301,18 +305,25 @@
 
 	.txn-left {
 		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.txn-info {
+		display: flex;
 		flex-direction: column;
 		gap: 3px;
 	}
 
 	.txn-merchant {
-		font-size: 15px;
+		font-size: 16px;
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
 	.txn-cat {
-		font-size: 13px;
+		font-size: 14px;
 		color: var(--color-text-muted);
 	}
 
@@ -325,11 +336,11 @@
 
 	.txn-amount {
 		font-family: var(--font-mono);
-		font-size: 14px;
+		font-size: 15px;
 	}
 
 	.txn-date {
-		font-size: 12px;
+		font-size: 13px;
 		color: var(--color-text-muted);
 	}
 
