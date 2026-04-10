@@ -1,0 +1,268 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import { api, type Transaction, type Category, type Account } from '$lib/api';
+
+	let transactions: Transaction[] = [];
+	let categories: Category[] = [];
+	let accounts: Account[] = [];
+	let loading = true;
+	let error = '';
+
+	// Filters (bound to URL search params)
+	let from = '';
+	let to = '';
+	let category = '';
+	let account = '';
+	let q = '';
+	let offset = 0;
+	const limit = 50;
+
+	onMount(async () => {
+		// Restore filters from URL
+		const p = $page.url.searchParams;
+		from = p.get('from') ?? '';
+		to = p.get('to') ?? '';
+		category = p.get('category') ?? '';
+		account = p.get('account') ?? '';
+		q = p.get('q') ?? '';
+		offset = Number(p.get('offset') ?? 0);
+
+		try {
+			[categories, accounts] = await Promise.all([api.categories(), api.accounts()]);
+			await loadTransactions();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load';
+			loading = false;
+		}
+	});
+
+	async function loadTransactions() {
+		loading = true;
+		error = '';
+		try {
+			transactions = await api.transactions({ from, to, category, account, q, limit: String(limit), offset: String(offset) });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load transactions';
+		} finally {
+			loading = false;
+		}
+	}
+
+	function applyFilters() {
+		offset = 0;
+		const params = new URLSearchParams();
+		if (from) params.set('from', from);
+		if (to) params.set('to', to);
+		if (category) params.set('category', category);
+		if (account) params.set('account', account);
+		if (q) params.set('q', q);
+		goto(`?${params.toString()}`, { replaceState: true });
+		loadTransactions();
+	}
+
+	function nextPage() {
+		offset += limit;
+		loadTransactions();
+	}
+
+	function prevPage() {
+		offset = Math.max(0, offset - limit);
+		loadTransactions();
+	}
+
+	function formatAmount(amount: number) {
+		const abs = Math.abs(amount);
+		return (amount < 0 ? '-' : '+') + '$' + abs.toFixed(2);
+	}
+</script>
+
+<svelte:head>
+	<title>Transactions — miser</title>
+</svelte:head>
+
+<div class="page">
+	<h1>Transactions</h1>
+
+	<form class="filters" on:submit|preventDefault={applyFilters}>
+		<input type="date" bind:value={from} placeholder="From" title="From date" />
+		<input type="date" bind:value={to} placeholder="To" title="To date" />
+		<select bind:value={category}>
+			<option value="">All categories</option>
+			{#each categories as cat}
+				<option value={cat.name}>{cat.name}</option>
+			{/each}
+		</select>
+		<select bind:value={account}>
+			<option value="">All accounts</option>
+			{#each accounts as acct}
+				<option value={acct.name}>{acct.name}</option>
+			{/each}
+		</select>
+		<input type="text" bind:value={q} placeholder="Search merchant..." />
+		<button type="submit">Filter</button>
+	</form>
+
+	{#if loading}
+		<p class="state">Loading...</p>
+	{:else if error}
+		<p class="state error">{error}</p>
+	{:else if transactions.length === 0}
+		<p class="state">No transactions found.</p>
+	{:else}
+		<table>
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Merchant</th>
+					<th>Category</th>
+					<th>Account</th>
+					<th class="right">Amount</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each transactions as txn}
+					<tr>
+						<td class="muted">{txn.date}</td>
+						<td>{txn.merchant_clean ?? txn.merchant}</td>
+						<td class="muted">{txn.category_name || 'Uncategorized'}</td>
+						<td class="muted">{txn.account_name}</td>
+						<td class="right mono" class:income={txn.amount > 0} class:expense={txn.amount < 0}>
+							{formatAmount(txn.amount)}
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+
+		<div class="pagination">
+			<button on:click={prevPage} disabled={offset === 0}>← Prev</button>
+			<span class="muted">Showing {offset + 1}–{offset + transactions.length}</span>
+			<button on:click={nextPage} disabled={transactions.length < limit}>Next →</button>
+		</div>
+	{/if}
+</div>
+
+<style>
+	.page {
+		max-width: 1100px;
+	}
+
+	h1 {
+		font-size: 24px;
+		font-weight: 700;
+		margin-bottom: 24px;
+	}
+
+	.filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-bottom: 24px;
+	}
+
+	.filters input,
+	.filters select {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius);
+		color: var(--color-text);
+		padding: 7px 10px;
+		font-size: 13px;
+		outline: none;
+	}
+
+	.filters input:focus,
+	.filters select:focus {
+		border-color: var(--color-accent);
+	}
+
+	.filters button {
+		background: var(--color-accent);
+		border: none;
+		border-radius: var(--radius);
+		color: #fff;
+		padding: 7px 16px;
+		font-size: 13px;
+		cursor: pointer;
+	}
+
+	.state {
+		color: var(--color-text-muted);
+		margin-top: 32px;
+	}
+
+	.error {
+		color: var(--color-expense);
+	}
+
+	table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	th {
+		text-align: left;
+		font-size: 12px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-muted);
+		padding: 8px 12px;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	td {
+		padding: 10px 12px;
+		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+		font-size: 14px;
+	}
+
+	tr:last-child td {
+		border-bottom: none;
+	}
+
+	.muted {
+		color: var(--color-text-muted);
+	}
+
+	.right {
+		text-align: right;
+	}
+
+	.mono {
+		font-family: var(--font-mono);
+	}
+
+	.income {
+		color: var(--color-income);
+	}
+
+	.expense {
+		color: var(--color-expense);
+	}
+
+	.pagination {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		margin-top: 20px;
+		font-size: 13px;
+	}
+
+	.pagination button {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius);
+		color: var(--color-text);
+		padding: 6px 12px;
+		font-size: 13px;
+		cursor: pointer;
+	}
+
+	.pagination button:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+</style>

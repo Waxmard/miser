@@ -74,8 +74,8 @@ func buildHierarchicalTotals(cats []repository.CategoryWithCount) []CategoryTota
 	return result
 }
 
-// PrintTrends writes monthly spending data as JSON to w.
-func PrintTrends(ctx context.Context, repo repository.Repository, w io.Writer) error {
+// GetTrends returns monthly spending data for the current and previous months.
+func GetTrends(ctx context.Context, repo repository.Repository) (*TrendsOutput, error) {
 	now := time.Now().UTC()
 	curYear, curMonth, _ := now.Date()
 	curStart := time.Date(curYear, curMonth, 1, 0, 0, 0, 0, time.UTC)
@@ -86,20 +86,20 @@ func PrintTrends(ctx context.Context, repo repository.Repository, w io.Writer) e
 
 	currentCats, err := repo.Categories().ListWithCounts(ctx, curStart, curEnd)
 	if err != nil {
-		return fmt.Errorf("current month categories: %w", err)
+		return nil, fmt.Errorf("current month categories: %w", err)
 	}
 
 	previousCats, err := repo.Categories().ListWithCounts(ctx, prevStart, prevEnd)
 	if err != nil {
-		return fmt.Errorf("previous month categories: %w", err)
+		return nil, fmt.Errorf("previous month categories: %w", err)
 	}
 
 	budgets, err := repo.Budgets().List(ctx)
 	if err != nil {
-		return fmt.Errorf("list budgets: %w", err)
+		return nil, fmt.Errorf("list budgets: %w", err)
 	}
 
-	out := TrendsOutput{
+	out := &TrendsOutput{
 		CurrentMonth:  curStart.Format("2006-01"),
 		PreviousMonth: prevStart.Format("2006-01"),
 	}
@@ -114,6 +114,15 @@ func PrintTrends(ctx context.Context, repo repository.Repository, w io.Writer) e
 		})
 	}
 
+	return out, nil
+}
+
+// PrintTrends writes monthly spending data as JSON to w.
+func PrintTrends(ctx context.Context, repo repository.Repository, w io.Writer) error {
+	out, err := GetTrends(ctx, repo)
+	if err != nil {
+		return err
+	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)

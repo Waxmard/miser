@@ -17,6 +17,7 @@ Personal finance tracker
 * [miser import-monarch](miser_import-monarch.md)	 - Import transactions from Monarch Money CSV export
 * [miser init](miser_init.md)	 - Create config, database, and seed categories
 * [miser internal](miser_internal.md)	 - Commands used by Claude Code cron jobs (not for direct use)
+* [miser serve](miser_serve.md)	 - Start the web server
 * [miser setup](miser_setup.md)	 - Configure external integrations
 * [miser sync](miser_sync.md)	 - Run all enabled sync sources
 * [miser transactions](miser_transactions.md)	 - List transactions
