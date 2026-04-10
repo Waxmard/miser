@@ -20,7 +20,7 @@
 	<nav class="sidebar">
 		<div class="sidebar-header">
 			<div class="logo-block">
-				<div class="logo">miser</div>
+				<img src="/logo-light-wordmark.png" alt="miser" class="logo-img" />
 				<div class="tagline">personal finance</div>
 			</div>
 			<button class="hamburger" on:click={() => (menuOpen = !menuOpen)} aria-label="Toggle menu">
@@ -74,13 +74,11 @@
 		justify-content: space-between;
 	}
 
-	.logo {
-		font-family: var(--font-display);
-		font-size: 28px;
-		font-weight: 600;
-		color: var(--color-text);
-		letter-spacing: -0.5px;
-		line-height: 1;
+	.logo-img {
+		display: block;
+		height: 110px;
+		width: auto;
+		margin-bottom: 6px;
 	}
 
 	.tagline {
