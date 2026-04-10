@@ -2,12 +2,13 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { api, type Transaction, type Category, type Account } from '$lib/api';
+	import { api, type Transaction, type Category, type Account, type MerchantIcon as MerchantIconData } from '$lib/api';
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
 
 	let transactions: Transaction[] = [];
 	let categories: Category[] = [];
 	let accounts: Account[] = [];
+	let merchantIconOverrides: MerchantIconData[] = [];
 	let loading = true;
 	let error = '';
 
@@ -31,7 +32,11 @@
 		offset = Number(p.get('offset') ?? 0);
 
 		try {
-			[categories, accounts] = await Promise.all([api.categories(), api.accounts()]);
+			[categories, accounts, merchantIconOverrides] = await Promise.all([
+				api.categories(),
+				api.accounts(),
+				api.merchantIcons()
+			]);
 			await loadTransactions();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load';
@@ -71,6 +76,15 @@
 	function prevPage() {
 		offset = Math.max(0, offset - limit);
 		loadTransactions();
+	}
+
+	$: merchantIconMap = Object.fromEntries(
+		merchantIconOverrides.map((m) => [m.merchant_name.toLowerCase(), m.icon_slug])
+	);
+
+	function merchantSlug(txn: Transaction): string | null {
+		const name = (txn.merchant_clean ?? txn.merchant).toLowerCase();
+		return merchantIconMap[name] ?? null;
 	}
 
 	function formatAmount(amount: number) {
@@ -128,7 +142,7 @@
 						<td class="muted">{txn.date}</td>
 						<td>
 								<div class="merchant-cell">
-									<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={28} />
+									<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={28} iconSlug={merchantSlug(txn)} />
 									<span>{txn.merchant_clean ?? txn.merchant}</span>
 								</div>
 							</td>
@@ -186,7 +200,7 @@
 		color: var(--color-text);
 		padding: 8px 10px;
 		font-family: var(--font-sans);
-		font-size: 14px;
+		font-size: 13px;
 		font-weight: 400;
 		outline: none;
 		transition: border-color 0.12s;
@@ -208,7 +222,7 @@
 		color: #ffffff;
 		padding: 8px 18px;
 		font-family: var(--font-sans);
-		font-size: 14px;
+		font-size: 13px;
 		font-weight: 500;
 		cursor: pointer;
 		letter-spacing: 0.02em;
@@ -249,10 +263,10 @@
 
 	td {
 		padding: 0 14px;
-		height: 52px;
+		height: 48px;
 		vertical-align: middle;
 		border-bottom: 1px solid var(--color-border);
-		font-size: 15px;
+		font-size: 14px;
 	}
 
 	tbody tr:nth-child(even) td {
@@ -269,7 +283,7 @@
 
 	.muted {
 		color: var(--color-text-muted);
-		font-size: 14px;
+		font-size: 13px;
 	}
 
 	.right {
@@ -301,7 +315,7 @@
 		justify-content: center;
 		gap: 12px;
 		margin-top: 24px;
-		font-size: 14px;
+		font-size: 13px;
 		color: var(--color-text-muted);
 	}
 
@@ -312,7 +326,7 @@
 		color: var(--color-text);
 		padding: 7px 14px;
 		font-family: var(--font-sans);
-		font-size: 14px;
+		font-size: 13px;
 		cursor: pointer;
 		transition:
 			border-color 0.12s,

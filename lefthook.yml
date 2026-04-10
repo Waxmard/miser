@@ -6,13 +6,13 @@ pre-commit:
       run: goimports -w {staged_files} && git add {staged_files}
     go-lint:
       glob: "*.go"
-      run: golangci-lint run --fix ./...
+      run: golangci-lint run --fix ./cmd/... ./internal/...
     go-vet:
       glob: "*.go"
-      run: go vet ./...
+      run: go vet ./cmd/... ./internal/...
     go-test:
       glob: "*.go"
-      run: go test ./... -short
+      run: go test ./cmd/... ./internal/... -short
     gen-docs:
       glob: "cmd/miser/*.go"
       run: go run ./cmd/miser gen-docs docs/commands/ && git add docs/commands/

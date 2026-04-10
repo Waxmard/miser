@@ -102,3 +102,9 @@ type Report struct {
 	Data      string
 	CreatedAt time.Time
 }
+
+type MerchantIcon struct {
+	MerchantName string
+	IconSlug     string
+	UpdatedAt    time.Time
+}

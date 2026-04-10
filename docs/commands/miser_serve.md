@@ -10,7 +10,7 @@ miser serve [flags]
 
 ```
   -h, --help       help for serve
-  -p, --port int   Port to listen on (default 8080)
+  -p, --port int   Port to listen on (default 8090)
 ```
 
 ### SEE ALSO

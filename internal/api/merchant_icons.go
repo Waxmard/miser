@@ -1,0 +1,54 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/Waxmard/miser/internal/repository"
+)
+
+func (s *Server) handleListMerchantIcons(w http.ResponseWriter, r *http.Request) {
+	icons, err := s.repo.MerchantIcons().List(r.Context())
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to list merchant icons")
+		return
+	}
+	if icons == nil {
+		icons = []repository.MerchantIcon{}
+	}
+	jsonOK(w, icons)
+}
+
+func (s *Server) handleSetMerchantIcon(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		MerchantName string `json:"merchant_name"`
+		IconSlug     string `json:"icon_slug"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if body.MerchantName == "" || body.IconSlug == "" {
+		jsonError(w, http.StatusBadRequest, "merchant_name and icon_slug are required")
+		return
+	}
+
+	m := &repository.MerchantIcon{
+		MerchantName: body.MerchantName,
+		IconSlug:     body.IconSlug,
+	}
+	if err := s.repo.MerchantIcons().Set(r.Context(), m); err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to save merchant icon")
+		return
+	}
+	jsonOK(w, m)
+}
+
+func (s *Server) handleDeleteMerchantIcon(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if err := s.repo.MerchantIcons().Delete(r.Context(), name); err != nil {
+		jsonError(w, http.StatusInternalServerError, "failed to delete merchant icon")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -1,20 +1,28 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type TrendsResponse, type Transaction, type Report } from '$lib/api';
+	import { api, type TrendsResponse, type Transaction, type Report, type Category, type MerchantIcon as MerchantIconData } from '$lib/api';
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
+	import * as si from 'simple-icons';
+	import type { SimpleIcon } from 'simple-icons';
 
 	let trends: TrendsResponse | null = null;
 	let recentTxns: Transaction[] = [];
 	let report: Report | null = null;
+	let categories: Category[] = [];
+	let merchantIconOverrides: MerchantIconData[] = [];
 	let loading = true;
 	let error = '';
 
+	const bySlug = new Map<string, SimpleIcon>(Object.values(si).map((icon) => [icon.slug, icon]));
+
 	onMount(async () => {
 		try {
-			[trends, recentTxns, report] = await Promise.all([
+			[trends, recentTxns, report, categories, merchantIconOverrides] = await Promise.all([
 				api.trends(),
 				api.transactions({ limit: 10 }),
-				api.latestReport()
+				api.latestReport(),
+				api.categories(),
+				api.merchantIcons()
 			]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load dashboard';
@@ -22,6 +30,34 @@
 			loading = false;
 		}
 	});
+
+	// Map category name → icon slug (for the top-categories list)
+	$: categoryIconMap = Object.fromEntries(
+		categories.filter((c) => c.icon).map((c) => [c.name, c.icon!])
+	);
+
+	// Map merchant name → icon slug override (from DB)
+	$: merchantIconMap = Object.fromEntries(
+		merchantIconOverrides.map((m) => [m.merchant_name.toLowerCase(), m.icon_slug])
+	);
+
+	function merchantSlug(txn: Transaction): string | null {
+		const name = (txn.merchant_clean ?? txn.merchant).toLowerCase();
+		return merchantIconMap[name] ?? null;
+	}
+
+	function isUsable(hex: string): boolean {
+		const r = parseInt(hex.slice(0, 2), 16) / 255;
+		const g = parseInt(hex.slice(2, 4), 16) / 255;
+		const b = parseInt(hex.slice(4, 6), 16) / 255;
+		return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.88;
+	}
+
+	function catIcon(name: string): SimpleIcon | null {
+		const slug = categoryIconMap[name];
+		if (!slug) return null;
+		return bySlug.get(slug) ?? null;
+	}
 
 	function formatAmount(amount: number) {
 		const abs = Math.abs(amount);
@@ -73,9 +109,22 @@
 					{#each topCategories as cat}
 						{@const budget = budgetMap[cat.category]}
 						{@const pct = budget ? Math.min(100, (Math.abs(cat.total) / budget) * 100) : null}
+						{@const catIconResolved = catIcon(cat.category)}
 						<li>
 							<div class="cat-row">
-								<span class="cat-name">{cat.category}</span>
+								<div class="cat-name-wrap">
+									{#if catIconResolved}
+										<span
+											class="cat-icon"
+											style="color:{isUsable(catIconResolved.hex) ? `#${catIconResolved.hex}` : 'var(--color-text-muted)'}"
+										>
+											<svg role="img" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+												<path d={catIconResolved.path} />
+											</svg>
+										</span>
+									{/if}
+									<span class="cat-name">{cat.category}</span>
+								</div>
 								<span class="cat-amount {amountClass(cat.total)}">{formatAmount(cat.total)}</span>
 							</div>
 							{#if pct !== null}
@@ -102,7 +151,7 @@
 					{#each recentTxns as txn}
 						<li class="txn-row">
 							<div class="txn-left">
-								<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={34} />
+								<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={34} iconSlug={merchantSlug(txn)} />
 								<div class="txn-info">
 									<span class="txn-merchant">{txn.merchant_clean ?? txn.merchant}</span>
 									<span class="txn-cat">{txn.category_name || 'Uncategorized'}</span>
@@ -229,15 +278,27 @@
 		margin-bottom: 7px;
 	}
 
+	.cat-name-wrap {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.cat-icon {
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+	}
+
 	.cat-name {
-		font-size: 15px;
+		font-size: 14px;
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
 	.cat-amount {
 		font-family: var(--font-mono);
-		font-size: 15px;
+		font-size: 14px;
 	}
 
 	.budget-bar-row {
@@ -317,13 +378,13 @@
 	}
 
 	.txn-merchant {
-		font-size: 16px;
+		font-size: 15px;
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
 	.txn-cat {
-		font-size: 14px;
+		font-size: 13px;
 		color: var(--color-text-muted);
 	}
 
@@ -336,11 +397,11 @@
 
 	.txn-amount {
 		font-family: var(--font-mono);
-		font-size: 15px;
+		font-size: 14px;
 	}
 
 	.txn-date {
-		font-size: 13px;
+		font-size: 12px;
 		color: var(--color-text-muted);
 	}
 

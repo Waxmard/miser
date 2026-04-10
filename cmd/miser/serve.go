@@ -21,7 +21,7 @@ var serveCmd = &cobra.Command{
 }
 
 func init() {
-	serveCmd.Flags().IntVarP(&flagPort, "port", "p", 8080, "Port to listen on")
+	serveCmd.Flags().IntVarP(&flagPort, "port", "p", 8090, "Port to listen on")
 	rootCmd.AddCommand(serveCmd)
 }
 
@@ -36,6 +36,10 @@ func runServe(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("open database: %w", err)
 	}
 	defer func() { _ = repo.Close() }()
+
+	if err := repo.Migrate(cmd.Context()); err != nil {
+		return fmt.Errorf("migrate database: %w", err)
+	}
 
 	static, err := fs.Sub(webui.Assets, "dist")
 	if err != nil {
