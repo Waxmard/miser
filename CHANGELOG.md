@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.0](https://github.com/Waxmard/miser/compare/v2.0.0...v2.1.0) (2026-04-10)
+
+
+### Features
+
+* add category management and transaction review workflows ([#13](https://github.com/Waxmard/miser/issues/13)) ([70da738](https://github.com/Waxmard/miser/commit/70da738c1025b1ae5312991c4870f4a914680184))
+* add embedded web dashboard and serve command ([#15](https://github.com/Waxmard/miser/issues/15)) ([55a11a7](https://github.com/Waxmard/miser/commit/55a11a7e325c1b70b06f31b899461a5b1fc0258c))
+
 ## [2.0.0](https://github.com/Waxmard/miser/compare/v1.0.0...v2.0.0) (2026-04-08)
 
 
