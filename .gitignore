@@ -1,6 +1,5 @@
 bin/
 dist/
-!web/dist/.gitkeep
 *.db
 *.db-journal
 *.db-wal
