@@ -33,24 +33,9 @@ miser init
 
 ## Commands
 
-```
-miser init                              Create config, DB, seed categories
-miser import-monarch <csv>              One-time Monarch Money migration
+Run `miser --help` for the full command list, or `miser <command> --help` for flags and arguments. Full reference: [`docs/commands/`](docs/commands/).
 
-miser sync [email | simplefin]          Pull new transactions
-miser setup simplefin <token>           Configure SimpleFIN integration
-
-miser transactions [--from] [--to]      List transactions (aliases: txns, tx)
-miser categories                        List categories with counts
-miser accounts                          List accounts
-miser trends                            Monthly spending trends with budgets
-miser trends report                     Latest Claude narrative report
-
-miser internal process [emails | categorize | trends | budgets]
-miser internal write [parsed | categories | report | budgets] <json>
-```
-
-The `internal` commands are used by Claude Code cron jobs and are not intended for direct use.
+Docs are auto-generated from the source on pre-commit via `make docs`.
 
 ## How it works
 
@@ -115,11 +100,7 @@ make help           # Show all targets
 
 ## Roadmap
 
-**In progress**
-- Budget management with Claude-powered suggestions
-
 **Next**
-- Transaction review workflow — weekly digest of new categorizations with approve/change loop
 - Subcategories (housing → rent/parking/utilities; flexible → bars/entertainment; subscriptions)
 
 **Later**

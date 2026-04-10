@@ -150,7 +150,7 @@ func WriteCategories(ctx context.Context, repo repository.Repository, jsonPath s
 		}
 
 		txn.CategoryID = &cat.ID
-		txn.Status = "categorized"
+		txn.Status = "pending_review"
 		categorizedBy := "claude"
 		txn.CategorizedBy = &categorizedBy
 		txn.Confidence = &r.Confidence
@@ -288,6 +288,127 @@ func WriteBudgets(ctx context.Context, repo repository.Repository, jsonPath stri
 	}
 
 	return result, nil
+}
+
+// ReviewInput is the JSON format Claude writes after reviewing pending transactions.
+type ReviewInput struct {
+	Results []ReviewResult `json:"results"`
+}
+
+type ReviewResult struct {
+	TransactionID string `json:"transaction_id"`
+	Action        string `json:"action"`             // "approve" or "change"
+	Category      string `json:"category,omitempty"` // required when action is "change"
+}
+
+// WriteReview reads Claude's review decisions from a JSON file and finalizes transactions.
+// Returns the number of transactions resolved.
+func WriteReview(ctx context.Context, repo repository.Repository, jsonPath string) (int, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return 0, fmt.Errorf("read file: %w", err)
+	}
+
+	var input ReviewInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		return 0, fmt.Errorf("parse JSON: %w", err)
+	}
+
+	now := time.Now().UTC()
+	resolved := 0
+
+	for i := range input.Results {
+		r := &input.Results[i]
+
+		txn, err := repo.Transactions().GetByID(ctx, r.TransactionID)
+		if err != nil {
+			return resolved, fmt.Errorf("transaction %s not found: %w", r.TransactionID, err)
+		}
+
+		switch r.Action {
+		case "approve":
+			txn.Status = "categorized"
+			// categorized_by stays as "claude"
+		case "change":
+			cat, err := repo.Categories().GetByName(ctx, r.Category)
+			if err != nil {
+				return resolved, fmt.Errorf("category %q not found: %w", r.Category, err)
+			}
+			txn.CategoryID = &cat.ID
+			txn.Status = "categorized"
+			categorizedBy := "manual"
+			txn.CategorizedBy = &categorizedBy
+		default:
+			return resolved, fmt.Errorf("unknown action %q for transaction %s", r.Action, r.TransactionID)
+		}
+
+		txn.UpdatedAt = now
+		if err := repo.Transactions().Update(ctx, txn); err != nil {
+			return resolved, fmt.Errorf("update transaction %s: %w", r.TransactionID, err)
+		}
+		resolved++
+	}
+
+	return resolved, nil
+}
+
+// HierarchyInput is the JSON format Claude writes to organize categories into groups.
+type HierarchyInput struct {
+	Groups []HierarchyGroup `json:"groups"`
+}
+
+// HierarchyGroup defines a parent category and which existing categories belong under it.
+type HierarchyGroup struct {
+	Name     string   `json:"name"`     // Parent category name (may not yet exist)
+	Children []string `json:"children"` // Existing category names to nest under it
+}
+
+// WriteHierarchy reads Claude's hierarchy suggestions from a JSON file and applies them.
+// Parent categories are created if they don't exist. Children have their parent_id set.
+// Returns the number of child categories organized.
+func WriteHierarchy(ctx context.Context, repo repository.Repository, jsonPath string) (int, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return 0, fmt.Errorf("read file: %w", err)
+	}
+
+	var input HierarchyInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		return 0, fmt.Errorf("parse JSON: %w", err)
+	}
+
+	now := time.Now().UTC()
+	organized := 0
+
+	for i := range input.Groups {
+		g := &input.Groups[i]
+
+		parent, err := repo.Categories().GetByName(ctx, g.Name)
+		if err != nil {
+			parent = &repository.Category{
+				ID:        ulid.Make().String(),
+				Name:      g.Name,
+				CreatedAt: now,
+			}
+			if err := repo.Categories().Create(ctx, parent); err != nil {
+				return organized, fmt.Errorf("create parent category %q: %w", g.Name, err)
+			}
+		}
+
+		for _, childName := range g.Children {
+			child, err := repo.Categories().GetByName(ctx, childName)
+			if err != nil {
+				return organized, fmt.Errorf("child category %q not found: %w", childName, err)
+			}
+			child.ParentID = &parent.ID
+			if err := repo.Categories().Update(ctx, child); err != nil {
+				return organized, fmt.Errorf("update category %q: %w", childName, err)
+			}
+			organized++
+		}
+	}
+
+	return organized, nil
 }
 
 func nilIfEmpty(s string) *string {

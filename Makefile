@@ -1,4 +1,4 @@
-.PHONY: build run test lint fmt clean init sync help
+.PHONY: build run test lint fmt clean init sync help review organize weekly-report monthly-report budgets
 
 build:                          ## Build the miser binary
 	go build -o bin/miser ./cmd/miser
@@ -50,6 +50,24 @@ tools:                          ## Install dev tools
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/evilmartians/lefthook@latest
 	lefthook install
+
+review:                         ## Review pending transaction categorizations with Claude
+	claude -p "$$(cat cron/transaction-review.md)" --model sonnet --allowedTools "Bash,Read,Write"
+
+organize:                       ## Organize categories into a hierarchy with Claude
+	claude -p "Follow the instructions below exactly. Execute each step in order. Do not ask questions. $$(cat cron/category-hierarchy.md)" --model sonnet --allowedTools "Bash,Read,Write"
+
+weekly-report:                  ## Generate weekly spending report with Claude
+	claude -p "$$(cat cron/weekly-report.md)" --model sonnet --allowedTools "Bash,Read,Write"
+
+monthly-report:                 ## Generate monthly spending report with Claude
+	claude -p "$$(cat cron/monthly-report.md)" --model sonnet --allowedTools "Bash,Read,Write"
+
+budgets:                        ## Generate budget suggestions with Claude
+	claude -p "$$(cat cron/budget-suggestions.md)" --model sonnet --allowedTools "Bash,Read,Write"
+
+docs: build                     ## Generate command reference docs
+	./bin/miser gen-docs docs/commands/
 
 clean:                          ## Clean
 	rm -rf bin/ coverage.out coverage.html

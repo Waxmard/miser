@@ -226,6 +226,28 @@ func (r *transactionRepo) GetRecentCategorized(ctx context.Context, limit int) (
 	return txns, rows.Err()
 }
 
+func (r *transactionRepo) GetPendingReview(ctx context.Context, limit int) ([]repository.Transaction, error) {
+	query := baseTransactionQuery + ` WHERE t.status = 'pending_review' ORDER BY t.date DESC`
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", limit)
+	}
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("get pending review: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var txns []repository.Transaction
+	for rows.Next() {
+		t, err := scanTransactionRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		txns = append(txns, *t)
+	}
+	return txns, rows.Err()
+}
+
 const baseTransactionQuery = `SELECT t.id, t.account_id, t.category_id, t.amount, t.merchant,
 	t.merchant_clean, t.description, t.original_statement, t.date, t.source, t.source_id,
 	t.status, t.categorized_by, t.confidence, t.tags, t.owner, t.notes, t.raw_data,

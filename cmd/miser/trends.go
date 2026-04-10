@@ -57,7 +57,26 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	// Build lookup maps.
+	// Roll up child totals into parents for current and previous months.
+	rollUp := func(cats []repository.CategoryWithCount) {
+		byID := make(map[string]*repository.CategoryWithCount, len(cats))
+		for i := range cats {
+			byID[cats[i].ID] = &cats[i]
+		}
+		for i := range cats {
+			c := &cats[i]
+			if c.ParentID != nil {
+				if parent, ok := byID[*c.ParentID]; ok {
+					parent.TotalAmount += c.TotalAmount
+					parent.TransactionCount += c.TransactionCount
+				}
+			}
+		}
+	}
+	rollUp(currentCats)
+	rollUp(previousCats)
+
+	// Build lookup maps keyed by category name.
 	prevMap := make(map[string]float64)
 	for i := range previousCats {
 		prevMap[previousCats[i].Name] = previousCats[i].TotalAmount
@@ -65,6 +84,14 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 	budgetMap := make(map[string]float64)
 	for i := range budgets {
 		budgetMap[budgets[i].CategoryName] = budgets[i].MonthlyAmount
+	}
+
+	// Build children map for hierarchy rendering.
+	childrenOf := make(map[string][]int) // parentID → indices into currentCats
+	for i := range currentCats {
+		if currentCats[i].ParentID != nil {
+			childrenOf[*currentCats[i].ParentID] = append(childrenOf[*currentCats[i].ParentID], i)
+		}
 	}
 
 	// Header.
@@ -85,21 +112,12 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 		header.Render(padLeft("STATUS", 10)),
 	)
 
-	for i := range currentCats {
-		c := &currentCats[i]
-		if c.TransactionCount == 0 {
-			continue
-		}
+	printTrendRow := func(name string, curTotal float64, indent string) {
+		prevAmount := prevMap[name]
 
-		category := truncate(c.Name, 24)
-		curAmount := formatAmount(c.TotalAmount)
-		prevAmount := prevMap[c.Name]
-		prevStr := formatAmount(prevAmount)
-
-		// Change calculation.
 		var changeStr string
 		if prevAmount != 0 {
-			change := ((c.TotalAmount - prevAmount) / math.Abs(prevAmount)) * 100
+			change := ((curTotal - prevAmount) / math.Abs(prevAmount)) * 100
 			if change > 0 {
 				changeStr = red.Render(fmt.Sprintf("+%.1f%%", change))
 			} else {
@@ -109,27 +127,41 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 			changeStr = dim.Render("—")
 		}
 
-		// Budget status.
 		budgetStr := dim.Render("—")
 		statusStr := dim.Render("—")
-		if b, ok := budgetMap[c.Name]; ok {
+		if b, ok := budgetMap[name]; ok {
 			budgetStr = formatAmount(b)
-			// For expenses (negative amounts), compare absolute values.
-			if math.Abs(c.TotalAmount) > b {
+			if math.Abs(curTotal) > b {
 				statusStr = red.Render("OVER")
 			} else {
 				statusStr = green.Render("Under")
 			}
 		}
 
+		label := indent + truncate(name, 24-len(indent))
 		_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s  %s\n",
-			pad(category, 24),
-			padLeft(curAmount, 12),
-			dim.Render(padLeft(prevStr, 12)),
+			pad(label, 24),
+			padLeft(formatAmount(curTotal), 12),
+			dim.Render(padLeft(formatAmount(prevAmount), 12)),
 			padLeft(changeStr, 10),
 			padLeft(budgetStr, 10),
 			padLeft(statusStr, 10),
 		)
+	}
+
+	for i := range currentCats {
+		c := &currentCats[i]
+		if c.ParentID != nil || c.TransactionCount == 0 {
+			continue
+		}
+		printTrendRow(c.Name, c.TotalAmount, "")
+		for _, childIdx := range childrenOf[c.ID] {
+			child := &currentCats[childIdx]
+			if child.TransactionCount == 0 {
+				continue
+			}
+			printTrendRow(child.Name, child.TotalAmount, "  ")
+		}
 	}
 
 	// Print latest narrative if available.

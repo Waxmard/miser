@@ -20,6 +20,7 @@ var categoriesCmd = &cobra.Command{
 func init() {
 	categoriesCmd.Flags().String("from", "", "Start date (YYYY-MM-DD), default: all time")
 	categoriesCmd.Flags().String("to", "", "End date (YYYY-MM-DD), default: all time")
+	categoriesCmd.Flags().Bool("empty", false, "Show only categories with no transactions")
 	rootCmd.AddCommand(categoriesCmd)
 }
 
@@ -49,6 +50,8 @@ func runCategories(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	emptyOnly, _ := cmd.Flags().GetBool("empty")
+
 	header := lipgloss.NewStyle().Bold(true)
 	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
@@ -58,20 +61,80 @@ func runCategories(cmd *cobra.Command, _ []string) error {
 		header.Render(padLeft("TOTAL", 12)),
 	)
 
+	// Build child map and roll up counts/totals into parent groups.
+	type catRow struct {
+		name  string
+		count int
+		total float64
+	}
+	type groupRollup struct {
+		count int
+		total float64
+	}
+	childrenOf := make(map[string][]catRow)
+	originalChildCount := make(map[string]int)
+	rolledUp := make(map[string]groupRollup)
 	for i := range cats {
 		c := &cats[i]
-		countStr := fmt.Sprintf("%d", c.TransactionCount)
-		totalStr := formatAmount(c.TotalAmount)
-		if c.TransactionCount == 0 {
+		if c.ParentID != nil {
+			originalChildCount[*c.ParentID]++
+			childrenOf[*c.ParentID] = append(childrenOf[*c.ParentID], catRow{c.Name, c.TransactionCount, c.TotalAmount})
+			r := rolledUp[*c.ParentID]
+			r.count += c.TransactionCount
+			r.total += c.TotalAmount
+			rolledUp[*c.ParentID] = r
+		}
+	}
+
+	// When --empty is set, strip out children that have transactions.
+	if emptyOnly {
+		for id := range childrenOf {
+			var filtered []catRow
+			for _, ch := range childrenOf[id] {
+				if ch.count == 0 {
+					filtered = append(filtered, ch)
+				}
+			}
+			childrenOf[id] = filtered
+		}
+	}
+
+	printRow := func(name string, count int, total float64, indent string) {
+		countStr := fmt.Sprintf("%d", count)
+		totalStr := formatAmount(total)
+		if count == 0 {
 			countStr = dim.Render(countStr)
 			totalStr = dim.Render(totalStr)
 		}
-
+		label := indent + truncate(name, 28-len(indent))
 		_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s\n",
-			pad(truncate(c.Name, 28), 28),
+			pad(label, 28),
 			padLeft(countStr, 8),
 			padLeft(totalStr, 12),
 		)
+	}
+
+	for i := range cats {
+		c := &cats[i]
+		if c.ParentID != nil {
+			continue // printed under parent
+		}
+		children := childrenOf[c.ID]
+		if emptyOnly {
+			isGroup := originalChildCount[c.ID] > 0
+			if isGroup && len(children) == 0 {
+				continue // group has no empty children
+			}
+			if !isGroup && c.TransactionCount > 0 {
+				continue // standalone top-level category with transactions
+			}
+		}
+		r := rolledUp[c.ID]
+		displayCount, displayTotal := c.TransactionCount+r.count, c.TotalAmount+r.total
+		printRow(c.Name, displayCount, displayTotal, "")
+		for _, child := range children {
+			printRow(child.name, child.count, child.total, "  ")
+		}
 	}
 
 	return nil
