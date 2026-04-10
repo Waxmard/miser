@@ -36,9 +36,16 @@ var categoryDeleteCmd = &cobra.Command{
 	RunE:  runCategoryDelete,
 }
 
+var categoryRenameCmd = &cobra.Command{
+	Use:   "rename <old-name> <new-name>",
+	Short: "Rename a category or group",
+	Args:  cobra.ExactArgs(2),
+	RunE:  runCategoryRename,
+}
+
 func init() {
 	categoryCreateCmd.Flags().String("parent", "", "Parent category name")
-	categoryCmd.AddCommand(categoryMoveCmd, categoryCreateCmd, categoryDeleteCmd)
+	categoryCmd.AddCommand(categoryMoveCmd, categoryCreateCmd, categoryDeleteCmd, categoryRenameCmd)
 	rootCmd.AddCommand(categoryCmd)
 }
 
@@ -198,5 +205,34 @@ func runCategoryDelete(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Deleted %q. Cleared %d transaction(s). Deleted %d rule(s). Ungrouped %d child(ren).\n",
 		name, len(txns), deletedRules, ungrouped)
+	return nil
+}
+
+func runCategoryRename(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	repo, err := repository.New(cfg.Database.Driver, cfg.Database.SQLitePath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = repo.Close() }()
+
+	oldName, newName := args[0], args[1]
+
+	cat, err := repo.Categories().GetByName(ctx, oldName)
+	if err != nil {
+		return fmt.Errorf("category %q not found", oldName)
+	}
+
+	cat.Name = newName
+	if err := repo.Categories().Update(ctx, cat); err != nil {
+		return fmt.Errorf("rename category: %w", err)
+	}
+
+	fmt.Printf("Renamed %q to %q\n", oldName, newName)
 	return nil
 }
