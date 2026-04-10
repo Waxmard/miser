@@ -120,7 +120,7 @@
 
 <style>
 	.page {
-		max-width: 960px;
+		max-width: 1600px;
 	}
 
 	.header {

@@ -146,7 +146,7 @@
 
 <style>
 	.page {
-		max-width: 1100px;
+		max-width: 1600px;
 	}
 
 	h1 {

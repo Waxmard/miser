@@ -129,7 +129,7 @@
 
 <style>
 	.dashboard {
-		max-width: 1100px;
+		max-width: 1600px;
 	}
 
 	/* ── Hero ─────────────────────────────────────────── */
@@ -147,7 +147,7 @@
 
 	.hero-total {
 		font-family: var(--font-display);
-		font-size: 64px;
+		font-size: 80px;
 		font-weight: 600;
 		color: var(--color-text);
 		line-height: 1;
