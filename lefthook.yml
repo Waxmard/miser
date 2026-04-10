@@ -13,3 +13,6 @@ pre-commit:
     go-test:
       glob: "*.go"
       run: go test ./... -short
+    gen-docs:
+      glob: "cmd/miser/*.go"
+      run: go run ./cmd/miser gen-docs docs/commands/ && git add docs/commands/

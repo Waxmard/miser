@@ -66,6 +66,9 @@ monthly-report:                 ## Generate monthly spending report with Claude
 budgets:                        ## Generate budget suggestions with Claude
 	claude -p "$$(cat cron/budget-suggestions.md)" --model sonnet --allowedTools "Bash,Read,Write"
 
+docs: build                     ## Generate command reference docs
+	./bin/miser gen-docs docs/commands/
+
 clean:                          ## Clean
 	rm -rf bin/ coverage.out coverage.html
 
