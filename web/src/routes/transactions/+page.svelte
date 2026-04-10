@@ -150,16 +150,26 @@
 	}
 
 	h1 {
-		font-size: 24px;
-		font-weight: 700;
-		margin-bottom: 24px;
+		font-family: var(--font-display);
+		font-size: 36px;
+		font-weight: 600;
+		color: var(--color-text);
+		margin-bottom: 28px;
+		letter-spacing: -0.3px;
 	}
 
+	/* ── Filters ──────────────────────────────────────── */
 	.filters {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 8px;
-		margin-bottom: 24px;
+		margin-bottom: 28px;
+		align-items: center;
+	}
+
+	.filters input[type='text'] {
+		flex: 2;
+		min-width: 160px;
 	}
 
 	.filters input,
@@ -168,9 +178,16 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-text);
-		padding: 7px 10px;
+		padding: 8px 10px;
+		font-family: var(--font-sans);
 		font-size: 13px;
+		font-weight: 400;
 		outline: none;
+		transition: border-color 0.12s;
+	}
+
+	.filters input::placeholder {
+		color: var(--color-text-muted);
 	}
 
 	.filters input:focus,
@@ -182,12 +199,21 @@
 		background: var(--color-accent);
 		border: none;
 		border-radius: var(--radius);
-		color: #fff;
-		padding: 7px 16px;
+		color: #ffffff;
+		padding: 8px 18px;
+		font-family: var(--font-sans);
 		font-size: 13px;
+		font-weight: 500;
 		cursor: pointer;
+		letter-spacing: 0.02em;
+		transition: opacity 0.12s;
 	}
 
+	.filters button:hover {
+		opacity: 0.88;
+	}
+
+	/* ── States ───────────────────────────────────────── */
 	.state {
 		color: var(--color-text-muted);
 		margin-top: 32px;
@@ -197,6 +223,7 @@
 		color: var(--color-expense);
 	}
 
+	/* ── Table ────────────────────────────────────────── */
 	table {
 		width: 100%;
 		border-collapse: collapse;
@@ -204,27 +231,39 @@
 
 	th {
 		text-align: left;
-		font-size: 12px;
-		font-weight: 600;
+		font-size: 11px;
+		font-weight: 500;
 		text-transform: uppercase;
-		letter-spacing: 0.06em;
+		letter-spacing: 0.1em;
 		color: var(--color-text-muted);
-		padding: 8px 12px;
+		padding: 10px 14px;
 		border-bottom: 1px solid var(--color-border);
+		background: var(--color-bg);
 	}
 
 	td {
-		padding: 10px 12px;
-		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+		padding: 0 14px;
+		height: 48px;
+		vertical-align: middle;
+		border-bottom: 1px solid var(--color-border);
 		font-size: 14px;
 	}
 
-	tr:last-child td {
+	tbody tr:nth-child(even) td {
+		background: var(--color-surface-alt);
+	}
+
+	tbody tr:last-child td {
 		border-bottom: none;
+	}
+
+	tbody tr:hover td {
+		background: var(--color-accent-light);
 	}
 
 	.muted {
 		color: var(--color-text-muted);
+		font-size: 13px;
 	}
 
 	.right {
@@ -243,12 +282,15 @@
 		color: var(--color-expense);
 	}
 
+	/* ── Pagination ───────────────────────────────────── */
 	.pagination {
 		display: flex;
 		align-items: center;
-		gap: 16px;
-		margin-top: 20px;
+		justify-content: center;
+		gap: 12px;
+		margin-top: 24px;
 		font-size: 13px;
+		color: var(--color-text-muted);
 	}
 
 	.pagination button {
@@ -256,13 +298,22 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-text);
-		padding: 6px 12px;
+		padding: 7px 14px;
+		font-family: var(--font-sans);
 		font-size: 13px;
 		cursor: pointer;
+		transition:
+			border-color 0.12s,
+			color 0.12s;
+	}
+
+	.pagination button:hover:not(:disabled) {
+		border-color: var(--color-accent);
+		color: var(--color-accent);
 	}
 
 	.pagination button:disabled {
-		opacity: 0.4;
+		opacity: 0.35;
 		cursor: default;
 	}
 </style>

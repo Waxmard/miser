@@ -74,7 +74,19 @@
 					{@const budget = budgetMap[cat.category] ?? 0}
 					{@const over = budget > 0 && Math.abs(cat.total) > budget}
 					<tr class:parent={cat.subcategories && cat.subcategories.length > 0}>
-						<td>{cat.category}</td>
+						<td>
+						<div class="cat-label">{cat.category}</div>
+						{#if budgetMap[cat.category] > 0}
+							{@const catPct = Math.min(100, (Math.abs(cat.total) / budgetMap[cat.category]) * 100)}
+							<div class="parent-bar">
+								<div
+									class="parent-bar-fill"
+									class:over={catPct >= 100}
+									style="width: {catPct}%"
+								></div>
+							</div>
+						{/if}
+					</td>
 						<td class="right mono">{formatAmount(cat.total)}</td>
 						<td class="right mono muted">{formatAmount(prev)}</td>
 						<td class="right mono {pctClass(cat.total, prev)}">{pctChange(cat.total, prev)}</td>
@@ -91,7 +103,7 @@
 						{#each cat.subcategories as sub}
 							{@const subPrev = previousMap[sub.category] ?? 0}
 							<tr class="subrow">
-								<td class="sub-name">↳ {sub.category}</td>
+								<td class="sub-name">{sub.category}</td>
 								<td class="right mono">{formatAmount(sub.total)}</td>
 								<td class="right mono muted">{formatAmount(subPrev)}</td>
 								<td class="right mono {pctClass(sub.total, subPrev)}">{pctChange(sub.total, subPrev)}</td>
@@ -108,19 +120,22 @@
 
 <style>
 	.page {
-		max-width: 900px;
+		max-width: 960px;
 	}
 
 	.header {
 		display: flex;
 		align-items: baseline;
 		gap: 16px;
-		margin-bottom: 28px;
+		margin-bottom: 32px;
 	}
 
 	h1 {
-		font-size: 24px;
-		font-weight: 700;
+		font-family: var(--font-display);
+		font-size: 36px;
+		font-weight: 600;
+		color: var(--color-text);
+		letter-spacing: -0.3px;
 	}
 
 	.period {
@@ -137,6 +152,7 @@
 		color: var(--color-expense);
 	}
 
+	/* ── Table ────────────────────────────────────────── */
 	table {
 		width: 100%;
 		border-collapse: collapse;
@@ -144,44 +160,83 @@
 
 	th {
 		text-align: left;
-		font-size: 12px;
-		font-weight: 600;
+		font-size: 11px;
+		font-weight: 500;
 		text-transform: uppercase;
-		letter-spacing: 0.06em;
+		letter-spacing: 0.1em;
 		color: var(--color-text-muted);
-		padding: 8px 12px;
+		padding: 10px 14px;
 		border-bottom: 1px solid var(--color-border);
+		background: var(--color-bg);
 	}
 
 	td {
-		padding: 10px 12px;
-		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+		padding: 10px 14px;
+		border-bottom: 1px solid var(--color-border);
 		font-size: 14px;
+		vertical-align: middle;
 	}
 
-	tr.parent td {
-		font-weight: 600;
-	}
-
-	tr.subrow td {
-		color: var(--color-text-muted);
-		font-size: 13px;
-	}
-
-	tr:last-child td {
+	tbody tr:last-child td {
 		border-bottom: none;
 	}
 
-	.sub-name {
-		padding-left: 28px;
+	/* ── Parent rows ──────────────────────────────────── */
+	tr.parent td {
+		padding-top: 14px;
+		padding-bottom: 10px;
 	}
 
+	.cat-label {
+		font-family: var(--font-display);
+		font-size: 18px;
+		font-weight: 600;
+		color: var(--color-text);
+		letter-spacing: -0.2px;
+		line-height: 1.2;
+		margin-bottom: 6px;
+	}
+
+	.parent-bar {
+		height: 5px;
+		background: var(--color-surface-alt);
+		border-radius: 3px;
+		overflow: hidden;
+		width: 120px;
+	}
+
+	.parent-bar-fill {
+		height: 100%;
+		background: var(--color-accent);
+		border-radius: 3px;
+		transition: width 0.35s ease;
+	}
+
+	.parent-bar-fill.over {
+		background: var(--color-expense);
+	}
+
+	/* ── Subrows ──────────────────────────────────────── */
+	tr.subrow td {
+		font-size: 13px;
+		color: var(--color-text-muted);
+		padding-top: 6px;
+		padding-bottom: 6px;
+		background: var(--color-surface-alt);
+	}
+
+	.sub-name {
+		padding-left: 38px;
+	}
+
+	/* ── Utilities ────────────────────────────────────── */
 	.right {
 		text-align: right;
 	}
 
 	.mono {
 		font-family: var(--font-mono);
+		font-size: 13px;
 	}
 
 	.muted {
@@ -196,18 +251,18 @@
 		color: var(--color-expense);
 	}
 
+	/* ── Badges ───────────────────────────────────────── */
 	.badge {
 		display: inline-block;
 		font-size: 11px;
-		font-weight: 600;
-		padding: 2px 6px;
-		border-radius: 4px;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		font-weight: 500;
+		padding: 3px 8px;
+		border-radius: 100px;
+		letter-spacing: 0.06em;
 	}
 
 	.badge.over {
-		background: color-mix(in srgb, var(--color-expense) 15%, transparent);
+		background: color-mix(in srgb, var(--color-expense) 12%, transparent);
 		color: var(--color-expense);
 	}
 

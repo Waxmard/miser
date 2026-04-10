@@ -35,6 +35,10 @@
 	$: budgetMap = Object.fromEntries(
 		(trends?.budgets ?? []).map((b) => [b.category, b.budget])
 	);
+	$: heroTotal =
+		trends?.current
+			.filter((cat) => cat.total < 0)
+			.reduce((sum, cat) => sum + Math.abs(cat.total), 0) ?? 0;
 </script>
 
 <svelte:head>
@@ -42,8 +46,18 @@
 </svelte:head>
 
 <div class="dashboard">
-	<h1>Dashboard</h1>
-	<p class="subtitle">{trends?.current_month ?? '...'}</p>
+	<header class="hero">
+		<div class="hero-month">{trends?.current_month?.toUpperCase() ?? 'LOADING'}</div>
+		<div class="hero-total">
+			${heroTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+		</div>
+		<div class="hero-sub">
+			{#if !loading && trends}
+				Compared to last month
+			{/if}
+		</div>
+	</header>
+	<hr class="divider" />
 
 	{#if loading}
 		<p class="loading">Loading...</p>
@@ -64,12 +78,15 @@
 								<span class="cat-amount {amountClass(cat.total)}">{formatAmount(cat.total)}</span>
 							</div>
 							{#if pct !== null}
-								<div class="budget-bar">
-									<div
-										class="budget-fill"
-										class:over={pct >= 100}
-										style="width: {pct}%"
-									></div>
+								<div class="budget-bar-row">
+									<div class="budget-bar">
+										<div
+											class="budget-fill"
+											class:over={pct >= 100}
+											style="width: {pct}%"
+										></div>
+									</div>
+									<span class="budget-pct" class:over={pct >= 100}>{pct.toFixed(0)}%</span>
 								</div>
 							{/if}
 						</li>
@@ -94,13 +111,16 @@
 						</li>
 					{/each}
 				</ul>
+				<a href="/transactions" class="view-all">View all transactions →</a>
 			</section>
 
 			<!-- Latest report narrative -->
 			{#if report}
 				<section class="card narrative">
 					<h2>Monthly Report — {report.year}/{String(report.month).padStart(2, '0')}</h2>
-					<p>{report.narrative}</p>
+					<div class="narrative-body">
+						<p>{report.narrative}</p>
+					</div>
 				</section>
 			{/if}
 		</div>
@@ -112,17 +132,42 @@
 		max-width: 1100px;
 	}
 
-	h1 {
-		font-size: 24px;
-		font-weight: 700;
-		margin-bottom: 4px;
-	}
-
-	.subtitle {
-		color: var(--color-text-muted);
+	/* ── Hero ─────────────────────────────────────────── */
+	.hero {
 		margin-bottom: 32px;
 	}
 
+	.hero-month {
+		font-size: 11px;
+		font-weight: 500;
+		letter-spacing: 0.14em;
+		color: var(--color-accent);
+		margin-bottom: 8px;
+	}
+
+	.hero-total {
+		font-family: var(--font-display);
+		font-size: 64px;
+		font-weight: 600;
+		color: var(--color-text);
+		line-height: 1;
+		letter-spacing: -1px;
+	}
+
+	.hero-sub {
+		font-size: 15px;
+		color: var(--color-text-muted);
+		margin-top: 10px;
+		min-height: 1.5em;
+	}
+
+	.divider {
+		border: none;
+		border-top: 1px solid var(--color-border);
+		margin-bottom: 36px;
+	}
+
+	/* ── Loading / error states ───────────────────────── */
 	.loading,
 	.error {
 		color: var(--color-text-muted);
@@ -133,90 +178,121 @@
 		color: var(--color-expense);
 	}
 
+	/* ── Grid ─────────────────────────────────────────── */
 	.grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 20px;
+		gap: 24px;
 	}
 
 	.card {
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
-		padding: 20px;
+		padding: 24px;
 	}
 
-	.narrative {
-		grid-column: 1 / -1;
-		color: var(--color-text-muted);
-		line-height: 1.7;
-	}
-
+	/* ── Section headers ──────────────────────────────── */
 	h2 {
-		font-size: 13px;
-		font-weight: 600;
+		font-size: 11px;
+		font-weight: 500;
 		text-transform: uppercase;
-		letter-spacing: 0.08em;
+		letter-spacing: 0.12em;
 		color: var(--color-text-muted);
-		margin-bottom: 16px;
+		margin-bottom: 20px;
 	}
 
-	/* Categories */
+	/* ── Categories ───────────────────────────────────── */
 	.category-list {
 		list-style: none;
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+	}
+
+	.category-list li {
+		padding: 12px 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.category-list li:last-child {
+		border-bottom: none;
 	}
 
 	.cat-row {
 		display: flex;
 		justify-content: space-between;
 		align-items: baseline;
-		margin-bottom: 4px;
+		margin-bottom: 7px;
 	}
 
 	.cat-name {
 		font-size: 14px;
+		font-weight: 500;
+		color: var(--color-text);
 	}
 
 	.cat-amount {
 		font-family: var(--font-mono);
-		font-size: 13px;
+		font-size: 14px;
+	}
+
+	.budget-bar-row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
 	}
 
 	.budget-bar {
-		height: 3px;
-		background: var(--color-border);
-		border-radius: 2px;
+		flex: 1;
+		height: 6px;
+		background: var(--color-surface-alt);
+		border-radius: 3px;
 		overflow: hidden;
 	}
 
 	.budget-fill {
 		height: 100%;
 		background: var(--color-accent);
-		border-radius: 2px;
-		transition: width 0.3s ease;
+		border-radius: 3px;
+		transition: width 0.35s ease;
 	}
 
 	.budget-fill.over {
 		background: var(--color-expense);
 	}
 
-	/* Transactions */
+	.budget-pct {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		color: var(--color-text-muted);
+		min-width: 32px;
+		text-align: right;
+	}
+
+	.budget-pct.over {
+		color: var(--color-expense);
+	}
+
+	/* ── Transactions ─────────────────────────────────── */
 	.txn-list {
 		list-style: none;
 		display: flex;
 		flex-direction: column;
-		gap: 0;
 	}
 
 	.txn-row {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 10px 0;
+		padding: 11px 8px;
+		margin: 0 -8px;
 		border-bottom: 1px solid var(--color-border);
+		border-radius: var(--radius);
+		transition: background 0.1s;
+	}
+
+	.txn-row:hover {
+		background: var(--color-surface-alt);
 	}
 
 	.txn-row:last-child {
@@ -226,15 +302,17 @@
 	.txn-left {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 3px;
 	}
 
 	.txn-merchant {
-		font-size: 14px;
+		font-size: 15px;
+		font-weight: 500;
+		color: var(--color-text);
 	}
 
 	.txn-cat {
-		font-size: 12px;
+		font-size: 13px;
 		color: var(--color-text-muted);
 	}
 
@@ -242,12 +320,12 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
-		gap: 2px;
+		gap: 3px;
 	}
 
 	.txn-amount {
 		font-family: var(--font-mono);
-		font-size: 13px;
+		font-size: 14px;
 	}
 
 	.txn-date {
@@ -255,6 +333,39 @@
 		color: var(--color-text-muted);
 	}
 
+	.view-all {
+		display: block;
+		margin-top: 16px;
+		font-size: 13px;
+		color: var(--color-text-muted);
+		text-align: right;
+		transition: color 0.12s;
+	}
+
+	.view-all:hover {
+		color: var(--color-accent);
+	}
+
+	/* ── Narrative ────────────────────────────────────── */
+	.narrative {
+		grid-column: 1 / -1;
+	}
+
+	.narrative-body {
+		border-left: 2px solid var(--color-accent);
+		padding-left: 20px;
+		margin-top: 4px;
+	}
+
+	.narrative-body p {
+		font-family: var(--font-display);
+		font-style: italic;
+		font-size: 17px;
+		line-height: 1.75;
+		color: var(--color-text-muted);
+	}
+
+	/* ── Amount colors ────────────────────────────────── */
 	.income {
 		color: var(--color-income);
 	}
