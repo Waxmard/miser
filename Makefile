@@ -3,6 +3,9 @@
 build:                          ## Build the miser binary
 	go build -o bin/miser ./cmd/miser
 
+web-build:                      ## Build the Svelte frontend (bun required)
+	cd web && bun run build
+
 run: build                      ## Build and run (ARGS="sync email")
 	./bin/miser $(ARGS)
 
