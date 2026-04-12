@@ -5,6 +5,7 @@
 	import MerchantIconDisplay from '$lib/MerchantIcon.svelte';
 	import * as si from 'simple-icons';
 	import type { SimpleIcon } from 'simple-icons';
+	import { allEmoji, parseIconSlug } from '$lib/icons';
 
 	let categories: Category[] = [];
 	let merchantIcons: MerchantIconRecord[] = [];
@@ -23,6 +24,7 @@
 	let newMerchantSlug: string | null = null;
 
 	const bySlug = new Map<string, SimpleIcon>(Object.values(si).map((icon) => [icon.slug, icon]));
+	const emojiByChar = new Map(allEmoji.map((e) => [e.emoji, e.name]));
 
 	onMount(async () => {
 		try {
@@ -122,9 +124,19 @@
 		}
 	}
 
-	function iconForSlug(slug: string | null | undefined): SimpleIcon | null {
+	type IconInfo =
+		| { type: 'si'; icon: SimpleIcon }
+		| { type: 'emoji'; emoji: string; name: string }
+		| null;
+
+	function iconForSlug(slug: string | null | undefined): IconInfo {
 		if (!slug) return null;
-		return bySlug.get(slug) ?? null;
+		const { library, name } = parseIconSlug(slug);
+		if (library === 'emoji') {
+			return { type: 'emoji', emoji: name, name: emojiByChar.get(name) ?? '' };
+		}
+		const icon = bySlug.get(name);
+		return icon ? { type: 'si', icon } : null;
 	}
 
 	function isUsable(hex: string): boolean {
@@ -155,18 +167,20 @@
 			</p>
 			<ul class="icon-list">
 				{#each categories as cat}
-					{@const icon = iconForSlug(cat.icon)}
+					{@const info = iconForSlug(cat.icon)}
 					<li class="icon-row">
 						<div class="icon-preview">
-							{#if icon}
+							{#if info?.type === 'si'}
 								<span
 									class="preview-wrap"
-									style="color:{isUsable(icon.hex) ? `#${icon.hex}` : 'var(--color-text-muted)'}"
+									style="color:{isUsable(info.icon.hex) ? `#${info.icon.hex}` : 'var(--color-text-muted)'}"
 								>
 									<svg role="img" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-										<path d={icon.path} />
+										<path d={info.icon.path} />
 									</svg>
 								</span>
+							{:else if info?.type === 'emoji'}
+								<span class="preview-wrap preview-emoji" aria-hidden="true">{info.emoji}</span>
 							{:else}
 								<span class="preview-empty">—</span>
 							{/if}
@@ -197,14 +211,14 @@
 			{#if merchantIcons.length > 0}
 				<ul class="icon-list">
 					{#each merchantIcons as mi}
-						{@const icon = iconForSlug(mi.icon_slug)}
+						{@const info = iconForSlug(mi.icon_slug)}
 						<li class="icon-row">
 							<div class="icon-preview">
-								{#if icon}
+								{#if info?.type === 'si'}
 									<span
 										class="preview-wrap"
-										style="color:{isUsable(icon.hex)
-											? `#${icon.hex}`
+										style="color:{isUsable(info.icon.hex)
+											? `#${info.icon.hex}`
 											: 'var(--color-text-muted)'}"
 									>
 										<svg
@@ -214,9 +228,11 @@
 											height="18"
 											fill="currentColor"
 										>
-											<path d={icon.path} />
+											<path d={info.icon.path} />
 										</svg>
 									</span>
+								{:else if info?.type === 'emoji'}
+									<span class="preview-wrap preview-emoji" aria-hidden="true">{info.emoji}</span>
 								{/if}
 							</div>
 							<span class="icon-row-name">{mi.merchant_name}</span>
@@ -252,7 +268,8 @@
 						{newMerchantSlug
 							? (() => {
 									const ic = iconForSlug(newMerchantSlug);
-									return ic ? `${ic.title} ✓` : newMerchantSlug;
+									if (!ic) return newMerchantSlug;
+									return ic.type === 'si' ? `${ic.icon.title} ✓` : `${ic.emoji} ${ic.name} ✓`;
 								})()
 							: 'Pick icon…'}
 					</button>
@@ -372,6 +389,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+
+	.preview-emoji {
+		font-size: 18px;
+		line-height: 1;
 	}
 
 	.preview-empty {

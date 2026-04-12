@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as si from 'simple-icons';
 	import type { SimpleIcon } from 'simple-icons';
+	import { parseIconSlug } from '$lib/icons';
 
 	export let merchant: string;
 	export let size: number = 32;
@@ -62,6 +63,11 @@
 		['chase', 'chase']
 	];
 
+	type Resolved =
+		| { type: 'si'; icon: SimpleIcon }
+		| { type: 'emoji'; emoji: string }
+		| { type: 'none' };
+
 	function isUsable(hex: string): boolean {
 		const r = parseInt(hex.slice(0, 2), 16) / 255;
 		const g = parseInt(hex.slice(2, 4), 16) / 255;
@@ -69,16 +75,28 @@
 		return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.88;
 	}
 
-	function resolveIcon(slug: string | null, merchantName: string): SimpleIcon | null {
-		if (slug) return bySlug.get(slug) ?? null;
+	function resolveIcon(slug: string | null, merchantName: string): Resolved {
+		if (slug) {
+			const { library, name } = parseIconSlug(slug);
+			if (library === 'emoji') return { type: 'emoji', emoji: name };
+			const icon = bySlug.get(name) ?? null;
+			return icon ? { type: 'si', icon } : { type: 'none' };
+		}
+		// Keyword-based fallback (always SI)
 		const norm = merchantName.toLowerCase();
 		const matched = keywordMap.find(([kw]) => norm.includes(kw));
-		if (matched) return bySlug.get(matched[1]) ?? null;
-		return null;
+		if (matched) {
+			const icon = bySlug.get(matched[1]) ?? null;
+			return icon ? { type: 'si', icon } : { type: 'none' };
+		}
+		return { type: 'none' };
 	}
 
-	$: icon = resolveIcon(iconSlug, merchant);
-	$: iconColor = icon && isUsable(icon.hex) ? `#${icon.hex}` : 'var(--color-text-muted)';
+	$: resolved = resolveIcon(iconSlug, merchant);
+	$: siIconColor =
+		resolved.type === 'si' && isUsable(resolved.icon.hex)
+			? `#${resolved.icon.hex}`
+			: 'var(--color-text-muted)';
 
 	// Fallback letter avatar
 	const firstLetter = merchant.trim().charAt(0).toUpperCase();
@@ -99,12 +117,13 @@
 	}
 	const bg = avatarColor(merchant);
 	$: avatarFontSize = Math.round(size * 0.44);
+	$: emojiFontSize = Math.round(size * 0.6);
 </script>
 
-{#if icon}
+{#if resolved.type === 'si'}
 	<span
 		class="icon-wrap"
-		style="width:{size}px;height:{size}px;color:{iconColor}"
+		style="width:{size}px;height:{size}px;color:{siIconColor}"
 		title={merchant}
 	>
 		<svg
@@ -115,8 +134,18 @@
 			fill="currentColor"
 			aria-label={merchant}
 		>
-			<path d={icon.path} />
+			<path d={resolved.icon.path} />
 		</svg>
+	</span>
+{:else if resolved.type === 'emoji'}
+	<span
+		class="icon-wrap emoji-wrap"
+		style="width:{size}px;height:{size}px;font-size:{emojiFontSize}px"
+		role="img"
+		aria-label={merchant}
+		title={merchant}
+	>
+		{resolved.emoji}
 	</span>
 {:else}
 	<span
@@ -138,6 +167,10 @@
 		background: var(--color-surface-alt);
 		flex-shrink: 0;
 		border: 1px solid var(--color-border);
+	}
+
+	.emoji-wrap {
+		line-height: 1;
 	}
 
 	.avatar {

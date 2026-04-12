@@ -2,33 +2,58 @@
 	import * as si from 'simple-icons';
 	import type { SimpleIcon } from 'simple-icons';
 	import { createEventDispatcher, onMount } from 'svelte';
+	import { allEmoji } from '$lib/icons';
 
-	export let current: string | null = null; // current slug
+	export let current: string | null = null; // namespaced slug or bare SI slug
 	export let open = false;
 
 	const dispatch = createEventDispatcher<{ select: string | null; close: void }>();
 
-	const allIcons: SimpleIcon[] = Object.values(si).sort((a, b) =>
+	const allSiIcons: SimpleIcon[] = Object.values(si).sort((a, b) =>
 		a.title.localeCompare(b.title)
 	);
 
+	let library: 'si' | 'emoji' = 'si';
 	let query = '';
 	let inputEl: HTMLInputElement;
 
-	$: filtered =
+	// When the picker opens, switch to the tab that matches the current icon
+	$: if (open) {
+		library = current?.startsWith('emoji:') ? 'emoji' : 'si';
+	}
+
+	// Decompose current slug for selected-state checks
+	$: currentLib = current ? (current.startsWith('emoji:') ? 'emoji' : 'si') : null;
+	$: currentName = current
+		? current.startsWith('emoji:')
+			? current.slice(6)
+			: current
+		: null;
+
+	$: filteredSi =
 		query.trim() === ''
-			? allIcons
-			: allIcons.filter(
+			? allSiIcons
+			: allSiIcons.filter(
 					(icon) =>
 						icon.title.toLowerCase().includes(query.toLowerCase()) ||
 						icon.slug.includes(query.toLowerCase())
 				);
 
-	// Show first 120 results to avoid rendering all 3500+ at once
-	$: visible = filtered.slice(0, 120);
+	$: filteredEmoji =
+		query.trim() === ''
+			? allEmoji
+			: allEmoji.filter(
+					(icon) =>
+						icon.name.toLowerCase().includes(query.toLowerCase()) ||
+						icon.keywords.some((kw) => kw.includes(query.toLowerCase()))
+				);
+
+	$: filteredCount = library === 'si' ? filteredSi.length : filteredEmoji.length;
+	$: visibleSi = filteredSi.slice(0, 120);
+	$: visibleEmoji = filteredEmoji.slice(0, 120);
 
 	function select(slug: string) {
-		dispatch('select', slug);
+		dispatch('select', library === 'emoji' ? `emoji:${slug}` : slug);
 		open = false;
 		query = '';
 	}
@@ -45,6 +70,11 @@
 		query = '';
 	}
 
+	function switchTab(tab: 'si' | 'emoji') {
+		library = tab;
+		query = '';
+	}
+
 	function isUsable(hex: string): boolean {
 		const r = parseInt(hex.slice(0, 2), 16) / 255;
 		const g = parseInt(hex.slice(2, 4), 16) / 255;
@@ -52,7 +82,7 @@
 		return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.88;
 	}
 
-	function iconColor(hex: string): string {
+	function siIconColor(hex: string): string {
 		return isUsable(hex) ? `#${hex}` : 'var(--color-text-muted)';
 	}
 
@@ -74,7 +104,18 @@
 	<div class="overlay" on:click|self={close}>
 		<div class="modal" role="dialog" aria-label="Pick an icon">
 			<div class="modal-header">
-				<span class="modal-title">Choose an icon</span>
+				<div class="tabs">
+					<button
+						class="tab"
+						class:active={library === 'si'}
+						on:click={() => switchTab('si')}
+					>Brands</button>
+					<button
+						class="tab"
+						class:active={library === 'emoji'}
+						on:click={() => switchTab('emoji')}
+					>Emoji</button>
+				</div>
 				<button class="close-btn" on:click={close} aria-label="Close">✕</button>
 			</div>
 
@@ -83,7 +124,7 @@
 					bind:this={inputEl}
 					bind:value={query}
 					type="text"
-					placeholder="Search {allIcons.length} icons…"
+					placeholder="Search {library === 'si' ? allSiIcons.length : allEmoji.length} icons…"
 					class="search-input"
 				/>
 				{#if current}
@@ -92,34 +133,48 @@
 			</div>
 
 			<p class="result-count">
-				{filtered.length > 120
-					? `Showing 120 of ${filtered.length} — type to narrow`
-					: `${filtered.length} result${filtered.length === 1 ? '' : 's'}`}
+				{filteredCount > 120
+					? `Showing 120 of ${filteredCount} — type to narrow`
+					: `${filteredCount} result${filteredCount === 1 ? '' : 's'}`}
 			</p>
 
 			<div class="grid">
-				{#each visible as icon (icon.slug)}
-					<button
-						class="icon-btn"
-						class:selected={icon.slug === current}
-						on:click={() => select(icon.slug)}
-						title={icon.title}
-					>
-						<span class="icon-wrap" style="color:{iconColor(icon.hex)}">
-							<svg
-								role="img"
-								viewBox="0 0 24 24"
-								width="20"
-								height="20"
-								fill="currentColor"
-								aria-hidden="true"
-							>
-								<path d={icon.path} />
-							</svg>
-						</span>
-						<span class="icon-label">{icon.title}</span>
-					</button>
-				{/each}
+				{#if library === 'si'}
+					{#each visibleSi as icon (icon.slug)}
+						<button
+							class="icon-btn"
+							class:selected={currentLib === 'si' && icon.slug === currentName}
+							on:click={() => select(icon.slug)}
+							title={icon.title}
+						>
+							<span class="icon-wrap" style="color:{siIconColor(icon.hex)}">
+								<svg
+									role="img"
+									viewBox="0 0 24 24"
+									width="20"
+									height="20"
+									fill="currentColor"
+									aria-hidden="true"
+								>
+									<path d={icon.path} />
+								</svg>
+							</span>
+							<span class="icon-label">{icon.title}</span>
+						</button>
+					{/each}
+				{:else}
+					{#each visibleEmoji as icon (icon.emoji)}
+						<button
+							class="icon-btn"
+							class:selected={currentLib === 'emoji' && icon.emoji === currentName}
+							on:click={() => select(icon.emoji)}
+							title={icon.name}
+						>
+							<span class="icon-wrap emoji-cell" aria-hidden="true">{icon.emoji}</span>
+							<span class="icon-label">{icon.name}</span>
+						</button>
+					{/each}
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -152,15 +207,41 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 16px 20px;
+		padding: 12px 20px;
 		border-bottom: 1px solid var(--color-border);
 		flex-shrink: 0;
 	}
 
-	.modal-title {
-		font-size: 14px;
+	.tabs {
+		display: flex;
+		gap: 4px;
+	}
+
+	.tab {
+		background: none;
+		border: 1px solid transparent;
+		border-radius: var(--radius);
+		padding: 5px 14px;
+		font-family: var(--font-sans);
+		font-size: 13px;
 		font-weight: 500;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition:
+			color 0.1s,
+			background 0.1s,
+			border-color 0.1s;
+	}
+
+	.tab:hover {
 		color: var(--color-text);
+		background: var(--color-surface-alt);
+	}
+
+	.tab.active {
+		color: var(--color-text);
+		background: var(--color-surface-alt);
+		border-color: var(--color-border);
 	}
 
 	.close-btn {
@@ -217,7 +298,9 @@
 		font-size: 13px;
 		cursor: pointer;
 		white-space: nowrap;
-		transition: color 0.12s, border-color 0.12s;
+		transition:
+			color 0.12s,
+			border-color 0.12s;
 	}
 
 	.clear-btn:hover {
@@ -278,6 +361,11 @@
 		background: var(--color-surface-alt);
 		border: 1px solid var(--color-border);
 		flex-shrink: 0;
+	}
+
+	.emoji-cell {
+		font-size: 20px;
+		line-height: 1;
 	}
 
 	.icon-btn.selected .icon-wrap {
