@@ -2,9 +2,8 @@
 	import { onMount } from 'svelte';
 	import { api, type TrendsResponse, type Transaction, type Report, type Category, type MerchantIcon as MerchantIconData } from '$lib/api';
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
-	import * as si from 'simple-icons';
-	import type { SimpleIcon } from 'simple-icons';
-	import { parseIconSlug } from '$lib/icons';
+	import CategoryIcon from '$lib/CategoryIcon.svelte';
+	import IconPicker from '$lib/IconPicker.svelte';
 
 	let trends: TrendsResponse | null = null;
 	let recentTxns: Transaction[] = [];
@@ -14,7 +13,15 @@
 	let loading = true;
 	let error = '';
 
-	const bySlug = new Map<string, SimpleIcon>(Object.values(si).map((icon) => [icon.slug, icon]));
+	// Category icon picker state
+	let catPickerOpen = false;
+	let catPickerId = '';
+	let catPickerSlug: string | null = null;
+
+	// Merchant icon picker state
+	let merchantPickerOpen = false;
+	let merchantPickerName = '';
+	let merchantPickerSlug: string | null = null;
 
 	onMount(async () => {
 		try {
@@ -32,10 +39,7 @@
 		}
 	});
 
-	// Map category name → icon slug (for the top-categories list)
-	$: categoryIconMap = Object.fromEntries(
-		categories.filter((c) => c.icon).map((c) => [c.name, c.icon!])
-	);
+	$: categoryMap = new Map(categories.map((c) => [c.name, c]));
 
 	// Map merchant name → icon slug override (from DB)
 	$: merchantIconMap = Object.fromEntries(
@@ -47,25 +51,51 @@
 		return merchantIconMap[name] ?? null;
 	}
 
-	function isUsable(hex: string): boolean {
-		const r = parseInt(hex.slice(0, 2), 16) / 255;
-		const g = parseInt(hex.slice(2, 4), 16) / 255;
-		const b = parseInt(hex.slice(4, 6), 16) / 255;
-		return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.88;
+	function openCatPicker(catName: string) {
+		const cat = categoryMap.get(catName);
+		if (!cat) return;
+		catPickerId = cat.id;
+		catPickerSlug = cat.icon ?? null;
+		catPickerOpen = true;
 	}
 
-	type CatIconResult =
-		| { type: 'si'; icon: SimpleIcon }
-		| { type: 'emoji'; char: string }
-		| null;
+	async function handleCatIconSelect(e: CustomEvent<string | null>) {
+		const slug = e.detail;
+		try {
+			await api.updateCategoryIcon(catPickerId, slug);
+			categories = categories.map((c) =>
+				c.id === catPickerId ? { ...c, icon: slug ?? undefined } : c
+			);
+		} catch { /* ignore */ }
+		catPickerId = '';
+	}
 
-	function catIcon(name: string): CatIconResult {
-		const slug = categoryIconMap[name];
-		if (!slug) return null;
-		const { library, name: parsed } = parseIconSlug(slug);
-		if (library === 'emoji') return { type: 'emoji', char: parsed };
-		const icon = bySlug.get(parsed);
-		return icon ? { type: 'si', icon } : null;
+	function openMerchantPicker(txn: Transaction) {
+		merchantPickerName = txn.merchant_clean ?? txn.merchant;
+		merchantPickerSlug = merchantSlug(txn);
+		merchantPickerOpen = true;
+	}
+
+	async function handleMerchantIconSelect(e: CustomEvent<string | null>) {
+		const slug = e.detail;
+		const name = merchantPickerName;
+		try {
+			if (slug) {
+				await api.setMerchantIcon(name, slug);
+				const existing = merchantIconOverrides.findIndex((m) => m.merchant_name === name);
+				if (existing >= 0) {
+					merchantIconOverrides = merchantIconOverrides.map((m) =>
+						m.merchant_name === name ? { ...m, icon_slug: slug } : m
+					);
+				} else {
+					merchantIconOverrides = [...merchantIconOverrides, { merchant_name: name, icon_slug: slug, updated_at: '' }];
+				}
+			} else {
+				await api.deleteMerchantIcon(name);
+				merchantIconOverrides = merchantIconOverrides.filter((m) => m.merchant_name !== name);
+			}
+		} catch { /* ignore */ }
+		merchantPickerName = '';
 	}
 
 	function formatAmount(amount: number) {
@@ -118,22 +148,16 @@
 					{#each topCategories as cat}
 						{@const budget = budgetMap[cat.category]}
 						{@const pct = budget ? Math.min(100, (Math.abs(cat.total) / budget) * 100) : null}
-						{@const catIconResolved = catIcon(cat.category)}
+						{@const catData = categoryMap.get(cat.category)}
 						<li>
 							<div class="cat-row">
 								<div class="cat-name-wrap">
-									{#if catIconResolved?.type === 'si'}
-										<span
-											class="cat-icon"
-											style="color:{isUsable(catIconResolved.icon.hex) ? `#${catIconResolved.icon.hex}` : 'var(--color-text-muted)'}"
-										>
-											<svg role="img" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-												<path d={catIconResolved.icon.path} />
-											</svg>
-										</span>
-									{:else if catIconResolved?.type === 'emoji'}
-										<span class="cat-icon cat-icon-emoji" aria-hidden="true">{catIconResolved.char}</span>
-									{/if}
+									<CategoryIcon
+										name={cat.category}
+										iconSlug={catData?.icon ?? null}
+										size={24}
+										on:click={() => openCatPicker(cat.category)}
+									/>
 									<span class="cat-name">{cat.category}</span>
 								</div>
 								<span class="cat-amount {amountClass(cat.total)}">{formatAmount(cat.total)}</span>
@@ -162,7 +186,9 @@
 					{#each recentTxns as txn}
 						<li class="txn-row">
 							<div class="txn-left">
-								<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={34} iconSlug={merchantSlug(txn)} />
+								<button class="icon-btn" on:click={() => openMerchantPicker(txn)}>
+									<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={34} iconSlug={merchantSlug(txn)} />
+								</button>
 								<div class="txn-info">
 									<span class="txn-merchant">{txn.merchant_clean ?? txn.merchant}</span>
 									<span class="txn-cat">{txn.category_name || 'Uncategorized'}</span>
@@ -190,6 +216,9 @@
 		</div>
 	{/if}
 </div>
+
+<IconPicker bind:open={catPickerOpen} current={catPickerSlug} on:select={handleCatIconSelect} />
+<IconPicker bind:open={merchantPickerOpen} current={merchantPickerSlug} on:select={handleMerchantIconSelect} />
 
 <style>
 	.dashboard {
@@ -295,17 +324,6 @@
 		gap: 8px;
 	}
 
-	.cat-icon {
-		display: flex;
-		align-items: center;
-		flex-shrink: 0;
-	}
-
-	.cat-icon-emoji {
-		font-size: 13px;
-		line-height: 1;
-	}
-
 	.cat-name {
 		font-size: 14px;
 		font-weight: 500;
@@ -352,6 +370,21 @@
 
 	.budget-pct.over {
 		color: var(--color-expense);
+	}
+
+	/* ── Clickable icon wrapper ───────────────────────── */
+	.icon-btn {
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		border-radius: var(--radius);
+		flex-shrink: 0;
+		transition: opacity 0.12s;
+	}
+
+	.icon-btn:hover {
+		opacity: 0.7;
 	}
 
 	/* ── Transactions ─────────────────────────────────── */

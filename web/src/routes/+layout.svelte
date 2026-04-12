@@ -5,8 +5,7 @@
 	const nav = [
 		{ href: '/', label: 'Dashboard' },
 		{ href: '/transactions', label: 'Transactions' },
-		{ href: '/trends', label: 'Trends' },
-		{ href: '/settings', label: 'Settings' }
+		{ href: '/trends', label: 'Trends' }
 	];
 
 	let menuOpen = false;

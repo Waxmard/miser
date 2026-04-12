@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import { api, type Transaction, type Category, type Account, type MerchantIcon as MerchantIconData } from '$lib/api';
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
+	import IconPicker from '$lib/IconPicker.svelte';
 
 	let transactions: Transaction[] = [];
 	let categories: Category[] = [];
@@ -87,6 +88,39 @@
 		return merchantIconMap[name] ?? null;
 	}
 
+	// Merchant icon picker state
+	let merchantPickerOpen = false;
+	let merchantPickerName = '';
+	let merchantPickerSlug: string | null = null;
+
+	function openMerchantPicker(txn: Transaction) {
+		merchantPickerName = txn.merchant_clean ?? txn.merchant;
+		merchantPickerSlug = merchantSlug(txn);
+		merchantPickerOpen = true;
+	}
+
+	async function handleMerchantIconSelect(e: CustomEvent<string | null>) {
+		const slug = e.detail;
+		const name = merchantPickerName;
+		try {
+			if (slug) {
+				await api.setMerchantIcon(name, slug);
+				const existing = merchantIconOverrides.findIndex((m) => m.merchant_name === name);
+				if (existing >= 0) {
+					merchantIconOverrides = merchantIconOverrides.map((m) =>
+						m.merchant_name === name ? { ...m, icon_slug: slug } : m
+					);
+				} else {
+					merchantIconOverrides = [...merchantIconOverrides, { merchant_name: name, icon_slug: slug, updated_at: '' }];
+				}
+			} else {
+				await api.deleteMerchantIcon(name);
+				merchantIconOverrides = merchantIconOverrides.filter((m) => m.merchant_name !== name);
+			}
+		} catch { /* ignore */ }
+		merchantPickerName = '';
+	}
+
 	function formatAmount(amount: number) {
 		const abs = Math.abs(amount);
 		return (amount < 0 ? '-' : '+') + '$' + abs.toFixed(2);
@@ -142,7 +176,9 @@
 						<td class="muted">{txn.date}</td>
 						<td>
 								<div class="merchant-cell">
-									<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={28} iconSlug={merchantSlug(txn)} />
+									<button class="icon-btn" on:click={() => openMerchantPicker(txn)}>
+										<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={28} iconSlug={merchantSlug(txn)} />
+									</button>
 									<span>{txn.merchant_clean ?? txn.merchant}</span>
 								</div>
 							</td>
@@ -163,6 +199,8 @@
 		</div>
 	{/if}
 </div>
+
+<IconPicker bind:open={merchantPickerOpen} current={merchantPickerSlug} on:select={handleMerchantIconSelect} />
 
 <style>
 	.page {
@@ -294,6 +332,20 @@
 		display: flex;
 		align-items: center;
 		gap: 10px;
+	}
+
+	.icon-btn {
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		border-radius: var(--radius);
+		flex-shrink: 0;
+		transition: opacity 0.12s;
+	}
+
+	.icon-btn:hover {
+		opacity: 0.7;
 	}
 
 	.mono {
