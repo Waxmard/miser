@@ -19,7 +19,7 @@
 
 	// When the picker opens, switch to the tab that matches the current icon
 	$: if (open) {
-		library = current?.startsWith('emoji:') ? 'emoji' : 'si';
+		library = current ? (current.startsWith('emoji:') ? 'emoji' : 'si') : 'emoji';
 	}
 
 	// Decompose current slug for selected-state checks

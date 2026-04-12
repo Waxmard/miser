@@ -4,6 +4,7 @@
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
 	import * as si from 'simple-icons';
 	import type { SimpleIcon } from 'simple-icons';
+	import { parseIconSlug } from '$lib/icons';
 
 	let trends: TrendsResponse | null = null;
 	let recentTxns: Transaction[] = [];
@@ -53,10 +54,18 @@
 		return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.88;
 	}
 
-	function catIcon(name: string): SimpleIcon | null {
+	type CatIconResult =
+		| { type: 'si'; icon: SimpleIcon }
+		| { type: 'emoji'; char: string }
+		| null;
+
+	function catIcon(name: string): CatIconResult {
 		const slug = categoryIconMap[name];
 		if (!slug) return null;
-		return bySlug.get(slug) ?? null;
+		const { library, name: parsed } = parseIconSlug(slug);
+		if (library === 'emoji') return { type: 'emoji', char: parsed };
+		const icon = bySlug.get(parsed);
+		return icon ? { type: 'si', icon } : null;
 	}
 
 	function formatAmount(amount: number) {
@@ -113,15 +122,17 @@
 						<li>
 							<div class="cat-row">
 								<div class="cat-name-wrap">
-									{#if catIconResolved}
+									{#if catIconResolved?.type === 'si'}
 										<span
 											class="cat-icon"
-											style="color:{isUsable(catIconResolved.hex) ? `#${catIconResolved.hex}` : 'var(--color-text-muted)'}"
+											style="color:{isUsable(catIconResolved.icon.hex) ? `#${catIconResolved.icon.hex}` : 'var(--color-text-muted)'}"
 										>
 											<svg role="img" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-												<path d={catIconResolved.path} />
+												<path d={catIconResolved.icon.path} />
 											</svg>
 										</span>
+									{:else if catIconResolved?.type === 'emoji'}
+										<span class="cat-icon cat-icon-emoji" aria-hidden="true">{catIconResolved.char}</span>
 									{/if}
 									<span class="cat-name">{cat.category}</span>
 								</div>
@@ -288,6 +299,11 @@
 		display: flex;
 		align-items: center;
 		flex-shrink: 0;
+	}
+
+	.cat-icon-emoji {
+		font-size: 13px;
+		line-height: 1;
 	}
 
 	.cat-name {
