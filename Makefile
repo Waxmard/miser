@@ -18,7 +18,7 @@ init: build                     ## First-time setup
 sync: build                     ## Sync all sources
 	./bin/miser sync
 
-serve: build                    ## Build and start the web server
+serve: web-build build          ## Build frontend + Go binary and start the web server
 	./bin/miser serve
 
 daemon: build                   ## Daemon mode
