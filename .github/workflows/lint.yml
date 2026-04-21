@@ -15,6 +15,11 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: web
+      - run: bun run build
+        working-directory: web
       - uses: golangci/golangci-lint-action@v9
         with:
           version: latest
