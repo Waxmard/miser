@@ -3,9 +3,24 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/Waxmard/miser/internal/repository"
 )
+
+type merchantIconResponse struct {
+	MerchantName string `json:"merchant_name"`
+	IconSlug     string `json:"icon_slug"`
+	UpdatedAt    string `json:"updated_at"`
+}
+
+func toMerchantIconResponse(m *repository.MerchantIcon) merchantIconResponse {
+	return merchantIconResponse{
+		MerchantName: m.MerchantName,
+		IconSlug:     m.IconSlug,
+		UpdatedAt:    m.UpdatedAt.Format(time.RFC3339),
+	}
+}
 
 func (s *Server) handleListMerchantIcons(w http.ResponseWriter, r *http.Request) {
 	icons, err := s.repo.MerchantIcons().List(r.Context())
@@ -13,10 +28,11 @@ func (s *Server) handleListMerchantIcons(w http.ResponseWriter, r *http.Request)
 		jsonError(w, http.StatusInternalServerError, "failed to list merchant icons")
 		return
 	}
-	if icons == nil {
-		icons = []repository.MerchantIcon{}
+	resp := make([]merchantIconResponse, len(icons))
+	for i := range icons {
+		resp[i] = toMerchantIconResponse(&icons[i])
 	}
-	jsonOK(w, icons)
+	jsonOK(w, resp)
 }
 
 func (s *Server) handleSetMerchantIcon(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +57,7 @@ func (s *Server) handleSetMerchantIcon(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusInternalServerError, "failed to save merchant icon")
 		return
 	}
-	jsonOK(w, m)
+	jsonOK(w, toMerchantIconResponse(m))
 }
 
 func (s *Server) handleDeleteMerchantIcon(w http.ResponseWriter, r *http.Request) {

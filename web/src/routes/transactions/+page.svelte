@@ -4,7 +4,14 @@
 	import { page } from '$app/stores';
 	import { api, type Transaction, type Category, type Account, type MerchantIcon as MerchantIconData } from '$lib/api';
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
-	import IconPicker from '$lib/IconPicker.svelte';
+	import type { SvelteComponent, ComponentType } from 'svelte';
+
+	let IconPicker: ComponentType<SvelteComponent> | null = null;
+	async function ensureIconPicker() {
+		if (!IconPicker) {
+			IconPicker = (await import('$lib/IconPicker.svelte')).default;
+		}
+	}
 
 	let transactions: Transaction[] = [];
 	let categories: Category[] = [];
@@ -93,9 +100,10 @@
 	let merchantPickerName = '';
 	let merchantPickerSlug: string | null = null;
 
-	function openMerchantPicker(txn: Transaction) {
-		merchantPickerName = txn.merchant_clean ?? txn.merchant;
+	async function openMerchantPicker(txn: Transaction) {
+		merchantPickerName = (txn.merchant_clean ?? txn.merchant).trim().toLowerCase();
 		merchantPickerSlug = merchantSlug(txn);
+		await ensureIconPicker();
 		merchantPickerOpen = true;
 	}
 
@@ -200,7 +208,9 @@
 	{/if}
 </div>
 
-<IconPicker bind:open={merchantPickerOpen} current={merchantPickerSlug} on:select={handleMerchantIconSelect} />
+{#if IconPicker}
+	<svelte:component this={IconPicker} bind:open={merchantPickerOpen} current={merchantPickerSlug} on:select={handleMerchantIconSelect} />
+{/if}
 
 <style>
 	.page {

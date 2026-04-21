@@ -4,10 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Waxmard/miser/internal/repository"
 )
+
+func normalizeMerchantName(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
 
 type merchantIconRepo struct {
 	db *sql.DB
@@ -35,6 +40,7 @@ func (r *merchantIconRepo) List(ctx context.Context) ([]repository.MerchantIcon,
 }
 
 func (r *merchantIconRepo) Set(ctx context.Context, m *repository.MerchantIcon) error {
+	m.MerchantName = normalizeMerchantName(m.MerchantName)
 	m.UpdatedAt = time.Now().UTC()
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO merchant_icons (merchant_name, icon_slug, updated_at)
@@ -50,7 +56,7 @@ func (r *merchantIconRepo) Set(ctx context.Context, m *repository.MerchantIcon) 
 
 func (r *merchantIconRepo) Delete(ctx context.Context, merchantName string) error {
 	_, err := r.db.ExecContext(ctx,
-		`DELETE FROM merchant_icons WHERE merchant_name = ?`, merchantName)
+		`DELETE FROM merchant_icons WHERE merchant_name = ?`, normalizeMerchantName(merchantName))
 	if err != nil {
 		return fmt.Errorf("delete merchant icon: %w", err)
 	}

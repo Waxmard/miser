@@ -3,7 +3,14 @@
 	import { api, type TrendsResponse, type Transaction, type Report, type Category, type MerchantIcon as MerchantIconData } from '$lib/api';
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
 	import CategoryIcon from '$lib/CategoryIcon.svelte';
-	import IconPicker from '$lib/IconPicker.svelte';
+	import type { SvelteComponent, ComponentType } from 'svelte';
+
+	let IconPicker: ComponentType<SvelteComponent> | null = null;
+	async function ensureIconPicker() {
+		if (!IconPicker) {
+			IconPicker = (await import('$lib/IconPicker.svelte')).default;
+		}
+	}
 
 	let trends: TrendsResponse | null = null;
 	let recentTxns: Transaction[] = [];
@@ -51,11 +58,12 @@
 		return merchantIconMap[name] ?? null;
 	}
 
-	function openCatPicker(catName: string) {
+	async function openCatPicker(catName: string) {
 		const cat = categoryMap.get(catName);
 		if (!cat) return;
 		catPickerId = cat.id;
 		catPickerSlug = cat.icon ?? null;
+		await ensureIconPicker();
 		catPickerOpen = true;
 	}
 
@@ -70,9 +78,10 @@
 		catPickerId = '';
 	}
 
-	function openMerchantPicker(txn: Transaction) {
-		merchantPickerName = txn.merchant_clean ?? txn.merchant;
+	async function openMerchantPicker(txn: Transaction) {
+		merchantPickerName = (txn.merchant_clean ?? txn.merchant).trim().toLowerCase();
 		merchantPickerSlug = merchantSlug(txn);
+		await ensureIconPicker();
 		merchantPickerOpen = true;
 	}
 
@@ -217,8 +226,10 @@
 	{/if}
 </div>
 
-<IconPicker bind:open={catPickerOpen} current={catPickerSlug} on:select={handleCatIconSelect} />
-<IconPicker bind:open={merchantPickerOpen} current={merchantPickerSlug} on:select={handleMerchantIconSelect} />
+{#if IconPicker}
+	<svelte:component this={IconPicker} bind:open={catPickerOpen} current={catPickerSlug} on:select={handleCatIconSelect} />
+	<svelte:component this={IconPicker} bind:open={merchantPickerOpen} current={merchantPickerSlug} on:select={handleMerchantIconSelect} />
+{/if}
 
 <style>
 	.dashboard {

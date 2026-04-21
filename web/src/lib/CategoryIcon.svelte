@@ -1,15 +1,11 @@
 <script lang="ts">
-	import * as si from 'simple-icons';
 	import type { SimpleIcon } from 'simple-icons';
 	import { parseIconSlug } from '$lib/icons';
+	import { getSimpleIcon } from '$lib/simpleIconCatalog';
 
 	export let name: string;
 	export let size: number = 32;
 	export let iconSlug: string | null = null;
-
-	const bySlug = new Map<string, SimpleIcon>(
-		Object.values(si).map((icon) => [icon.slug, icon])
-	);
 
 	type Resolved =
 		| { type: 'si'; icon: SimpleIcon }
@@ -23,15 +19,22 @@
 		return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.88;
 	}
 
-	function resolveIcon(slug: string | null): Resolved {
-		if (!slug) return { type: 'none' };
+	let resolved: Resolved = { type: 'none' };
+	$: void resolve(iconSlug);
+	async function resolve(slug: string | null) {
+		if (!slug) {
+			resolved = { type: 'none' };
+			return;
+		}
 		const { library, name: parsed } = parseIconSlug(slug);
-		if (library === 'emoji') return { type: 'emoji', emoji: parsed };
-		const icon = bySlug.get(parsed);
-		return icon ? { type: 'si', icon } : { type: 'none' };
+		if (library === 'emoji') {
+			resolved = { type: 'emoji', emoji: parsed };
+			return;
+		}
+		const icon = await getSimpleIcon(parsed);
+		if (parseIconSlug(iconSlug ?? '').name !== parsed) return;
+		resolved = icon ? { type: 'si', icon } : { type: 'none' };
 	}
-
-	$: resolved = resolveIcon(iconSlug);
 	$: siIconColor =
 		resolved.type === 'si' && isUsable(resolved.icon.hex)
 			? `#${resolved.icon.hex}`

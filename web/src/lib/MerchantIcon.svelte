@@ -1,17 +1,12 @@
 <script lang="ts">
-	import * as si from 'simple-icons';
 	import type { SimpleIcon } from 'simple-icons';
 	import { parseIconSlug } from '$lib/icons';
+	import { getSimpleIcon } from '$lib/simpleIconCatalog';
 
 	export let merchant: string;
 	export let size: number = 32;
 	/** Explicit icon slug override from the DB — takes priority over the built-in keyword map. */
 	export let iconSlug: string | null = null;
-
-	// Build slug → icon lookup once at module load
-	const bySlug = new Map<string, SimpleIcon>(
-		Object.values(si).map((icon) => [icon.slug, icon])
-	);
 
 	// Built-in keyword → slug mapping for common brands (fallback when no DB override)
 	const keywordMap: [string, string][] = [
@@ -218,31 +213,39 @@
 		return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.88;
 	}
 
-	function resolveIcon(slug: string | null, merchantName: string): Resolved {
+	let resolved: Resolved = { type: 'none' };
+	let resolveToken = 0;
+	$: void resolve(iconSlug, merchant);
+	async function resolve(slug: string | null, merchantName: string) {
+		const token = ++resolveToken;
 		if (slug) {
 			const { library, name } = parseIconSlug(slug);
-			if (library === 'emoji') return { type: 'emoji', emoji: name };
-			const icon = bySlug.get(name) ?? null;
-			return icon ? { type: 'si', icon } : { type: 'none' };
+			if (library === 'emoji') {
+				resolved = { type: 'emoji', emoji: name };
+				return;
+			}
+			const icon = await getSimpleIcon(name);
+			if (token !== resolveToken) return;
+			resolved = icon ? { type: 'si', icon } : { type: 'none' };
+			return;
 		}
-		// Keyword-based fallback (always SI)
 		const norm = merchantName.toLowerCase();
 		const matched = keywordMap.find(([kw]) => norm.includes(kw));
-		if (matched) {
-			const icon = bySlug.get(matched[1]) ?? null;
-			return icon ? { type: 'si', icon } : { type: 'none' };
+		if (!matched) {
+			resolved = { type: 'none' };
+			return;
 		}
-		return { type: 'none' };
+		const icon = await getSimpleIcon(matched[1]);
+		if (token !== resolveToken) return;
+		resolved = icon ? { type: 'si', icon } : { type: 'none' };
 	}
-
-	$: resolved = resolveIcon(iconSlug, merchant);
 	$: siIconColor =
 		resolved.type === 'si' && isUsable(resolved.icon.hex)
 			? `#${resolved.icon.hex}`
 			: 'var(--color-text-muted)';
 
 	// Fallback letter avatar
-	const firstLetter = merchant.trim().charAt(0).toUpperCase();
+	$: firstLetter = merchant.trim().charAt(0).toUpperCase();
 	const AVATAR_COLORS = [
 		'#6B7280',
 		'#9A7B5A',
@@ -258,7 +261,7 @@
 		for (let i = 0; i < s.length; i++) h = (s.charCodeAt(i) + ((h << 5) - h)) | 0;
 		return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 	}
-	const bg = avatarColor(merchant);
+	$: bg = avatarColor(merchant);
 	$: avatarFontSize = Math.round(size * 0.44);
 	$: emojiFontSize = Math.round(size * 0.6);
 </script>
