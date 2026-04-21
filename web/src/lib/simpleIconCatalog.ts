@@ -1,23 +1,34 @@
-import type { SimpleIcon } from 'simple-icons';
+export type SlimSimpleIcon = {
+	slug: string;
+	hex: string;
+	path: string;
+};
 
-let catalogPromise: Promise<Map<string, SimpleIcon>> | null = null;
+type SlimSimpleIconRecord = {
+	hex: string;
+	path: string;
+};
 
-function loadCatalog(): Promise<Map<string, SimpleIcon>> {
-	if (!catalogPromise) {
-		catalogPromise = import('simple-icons').then((mod) => {
-			const map = new Map<string, SimpleIcon>();
-			for (const icon of Object.values(mod) as SimpleIcon[]) {
-				if (icon && typeof icon === 'object' && 'slug' in icon) {
-					map.set(icon.slug, icon);
-				}
-			}
-			return map;
-		});
+type SlimSimpleIconModule = {
+	default: SlimSimpleIconRecord;
+};
+
+const iconLoaders = import.meta.glob('./generated/simple-icons/*.json');
+const iconPromiseCache = new Map<string, Promise<SlimSimpleIcon | null>>();
+
+export async function getSimpleIcon(slug: string): Promise<SlimSimpleIcon | null> {
+	const cached = iconPromiseCache.get(slug);
+	if (cached) {
+		return cached;
 	}
-	return catalogPromise;
-}
 
-export async function getSimpleIcon(slug: string): Promise<SimpleIcon | null> {
-	const catalog = await loadCatalog();
-	return catalog.get(slug) ?? null;
+	const key = `./generated/simple-icons/${slug}.json`;
+	const load = iconLoaders[key] as (() => Promise<SlimSimpleIconModule>) | undefined;
+	if (!load) {
+		return null;
+	}
+
+	const promise = load().then((mod) => ({ slug, ...mod.default }));
+	iconPromiseCache.set(slug, promise);
+	return promise;
 }

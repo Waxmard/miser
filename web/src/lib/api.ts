@@ -142,5 +142,5 @@ export const api = {
 		put<MerchantIcon>('/merchant-icons', { merchant_name, icon_slug }),
 
 	deleteMerchantIcon: (merchantName: string) =>
-		del(`/merchant-icons/${encodeURIComponent(merchantName)}`)
+		del(`/merchant-icons?name=${encodeURIComponent(merchantName)}`)
 };

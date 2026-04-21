@@ -60,7 +60,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/reports/latest", s.handleLatestReport)
 	s.mux.HandleFunc("GET /api/merchant-icons", s.handleListMerchantIcons)
 	s.mux.HandleFunc("PUT /api/merchant-icons", s.handleSetMerchantIcon)
-	s.mux.HandleFunc("DELETE /api/merchant-icons/{name}", s.handleDeleteMerchantIcon)
+	s.mux.HandleFunc("DELETE /api/merchant-icons", s.handleDeleteMerchantIcon)
 
 	if s.static != nil {
 		s.mux.Handle("/", http.FileServerFS(s.static))

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Waxmard/miser/internal/repository"
@@ -61,7 +62,11 @@ func (s *Server) handleSetMerchantIcon(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteMerchantIcon(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
+	name := r.URL.Query().Get("name")
+	if strings.TrimSpace(name) == "" {
+		jsonError(w, http.StatusBadRequest, "name is required")
+		return
+	}
 	if err := s.repo.MerchantIcons().Delete(r.Context(), name); err != nil {
 		jsonError(w, http.StatusInternalServerError, "failed to delete merchant icon")
 		return

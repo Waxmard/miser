@@ -1,7 +1,6 @@
 <script lang="ts">
-	import type { SimpleIcon } from 'simple-icons';
 	import { parseIconSlug } from '$lib/icons';
-	import { getSimpleIcon } from '$lib/simpleIconCatalog';
+	import { getSimpleIcon, type SlimSimpleIcon } from '$lib/simpleIconCatalog';
 
 	export let merchant: string;
 	export let size: number = 32;
@@ -201,10 +200,10 @@
 		['amtrak', 'amtrak'],
 	];
 
-	type Resolved =
-		| { type: 'si'; icon: SimpleIcon }
-		| { type: 'emoji'; emoji: string }
-		| { type: 'none' };
+		type Resolved =
+			| { type: 'si'; icon: SlimSimpleIcon }
+			| { type: 'emoji'; emoji: string }
+			| { type: 'none' };
 
 	function isUsable(hex: string): boolean {
 		const r = parseInt(hex.slice(0, 2), 16) / 255;
