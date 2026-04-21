@@ -22,6 +22,8 @@ linters:
     gocritic:
       enabled-tags: [diagnostic, style, performance]
   exclusions:
+    paths:
+      - web/node_modules
     rules:
       - path: _test\.go
         linters: [errcheck]
