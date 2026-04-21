@@ -64,6 +64,12 @@ export interface Report {
 	narrative: string;
 }
 
+export interface MerchantIcon {
+	merchant_name: string;
+	icon_slug: string;
+	updated_at: string;
+}
+
 export interface TransactionFilters {
 	from?: string;
 	to?: string;
@@ -88,11 +94,39 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
 	return res.json() as Promise<T>;
 }
 
+async function patch<T>(path: string, body: unknown): Promise<T> {
+	const res = await fetch(BASE + path, {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) throw new Error(`${path}: ${res.status}`);
+	return res.json() as Promise<T>;
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+	const res = await fetch(BASE + path, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) throw new Error(`${path}: ${res.status}`);
+	return res.json() as Promise<T>;
+}
+
+async function del(path: string): Promise<void> {
+	const res = await fetch(BASE + path, { method: 'DELETE' });
+	if (!res.ok) throw new Error(`${path}: ${res.status}`);
+}
+
 export const api = {
 	transactions: (filters: TransactionFilters = {}) =>
 		get<Transaction[]>('/transactions', filters as Record<string, string>),
 
 	categories: () => get<Category[]>('/categories'),
+
+	updateCategoryIcon: (id: string, icon: string | null) =>
+		patch<{ id: string; icon: string | null }>(`/categories/${id}`, { icon }),
 
 	trends: () => get<TrendsResponse>('/trends'),
 
@@ -100,5 +134,13 @@ export const api = {
 
 	accounts: () => get<Account[]>('/accounts'),
 
-	latestReport: () => get<Report | null>('/reports/latest')
+	latestReport: () => get<Report | null>('/reports/latest'),
+
+	merchantIcons: () => get<MerchantIcon[]>('/merchant-icons'),
+
+	setMerchantIcon: (merchant_name: string, icon_slug: string) =>
+		put<MerchantIcon>('/merchant-icons', { merchant_name, icon_slug }),
+
+	deleteMerchantIcon: (merchantName: string) =>
+		del(`/merchant-icons?name=${encodeURIComponent(merchantName)}`)
 };

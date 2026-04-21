@@ -61,6 +61,10 @@ func (d *DB) Reports() repository.ReportRepository {
 	return &reportRepo{db: d.db}
 }
 
+func (d *DB) MerchantIcons() repository.MerchantIconRepository {
+	return &merchantIconRepo{db: d.db}
+}
+
 func (d *DB) Close() error {
 	return d.db.Close()
 }
@@ -86,6 +90,12 @@ func (d *DB) Migrate(ctx context.Context) error {
 	if version < 1 {
 		if err := migrateV1(ctx, tx); err != nil {
 			return fmt.Errorf("migrate v1: %w", err)
+		}
+	}
+
+	if version < 2 {
+		if err := migrateV2(ctx, tx); err != nil {
+			return fmt.Errorf("migrate v2: %w", err)
 		}
 	}
 
@@ -196,6 +206,26 @@ func migrateV1(ctx context.Context, tx *sql.Tx) error {
 		)`,
 
 		`INSERT INTO schema_version (version) VALUES (1)`,
+	}
+
+	for _, stmt := range stmts {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("exec %q: %w", stmt[:40], err)
+		}
+	}
+
+	return nil
+}
+
+func migrateV2(ctx context.Context, tx *sql.Tx) error {
+	stmts := []string{
+		`CREATE TABLE merchant_icons (
+			merchant_name TEXT PRIMARY KEY,
+			icon_slug TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+
+		`INSERT INTO schema_version (version) VALUES (2)`,
 	}
 
 	for _, stmt := range stmts {

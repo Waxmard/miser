@@ -14,6 +14,7 @@ type Repository interface {
 	SyncState() SyncStateRepository
 	RawEmails() RawEmailRepository
 	Reports() ReportRepository
+	MerchantIcons() MerchantIconRepository
 	Close() error
 	Migrate(ctx context.Context) error
 }
@@ -82,6 +83,12 @@ type ReportRepository interface {
 	Create(ctx context.Context, report *Report) error
 	GetLatest(ctx context.Context) (*Report, error)
 	GetByMonth(ctx context.Context, year, month int) (*Report, error)
+}
+
+type MerchantIconRepository interface {
+	List(ctx context.Context) ([]MerchantIcon, error)
+	Set(ctx context.Context, m *MerchantIcon) error // upsert by merchant name
+	Delete(ctx context.Context, merchantName string) error
 }
 
 type TransactionFilters struct {

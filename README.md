@@ -92,6 +92,7 @@ poll_interval_minutes = 15
 
 ```bash
 make build          # Build binary to bin/
+make serve          # Build and start the web server
 make test           # Run tests
 make lint           # Run golangci-lint
 make check          # fmt + lint + vet + test

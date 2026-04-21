@@ -1,19 +1,43 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type TrendsResponse, type Transaction, type Report } from '$lib/api';
+	import { api, type TrendsResponse, type Transaction, type Report, type Category, type MerchantIcon as MerchantIconData } from '$lib/api';
+	import MerchantIcon from '$lib/MerchantIcon.svelte';
+	import CategoryIcon from '$lib/CategoryIcon.svelte';
+	import type { SvelteComponent, ComponentType } from 'svelte';
+
+	let IconPicker: ComponentType<SvelteComponent> | null = null;
+	async function ensureIconPicker() {
+		if (!IconPicker) {
+			IconPicker = (await import('$lib/IconPicker.svelte')).default;
+		}
+	}
 
 	let trends: TrendsResponse | null = null;
 	let recentTxns: Transaction[] = [];
 	let report: Report | null = null;
+	let categories: Category[] = [];
+	let merchantIconOverrides: MerchantIconData[] = [];
 	let loading = true;
 	let error = '';
 
+	// Category icon picker state
+	let catPickerOpen = false;
+	let catPickerId = '';
+	let catPickerSlug: string | null = null;
+
+	// Merchant icon picker state
+	let merchantPickerOpen = false;
+	let merchantPickerName = '';
+	let merchantPickerSlug: string | null = null;
+
 	onMount(async () => {
 		try {
-			[trends, recentTxns, report] = await Promise.all([
+			[trends, recentTxns, report, categories, merchantIconOverrides] = await Promise.all([
 				api.trends(),
-				api.transactions({ limit: '10' }),
-				api.latestReport()
+				api.transactions({ limit: 10 }),
+				api.latestReport(),
+				api.categories(),
+				api.merchantIcons()
 			]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load dashboard';
@@ -21,6 +45,67 @@
 			loading = false;
 		}
 	});
+
+	$: categoryMap = new Map(categories.map((c) => [c.name, c]));
+
+	// Map merchant name → icon slug override (from DB)
+	$: merchantIconMap = Object.fromEntries(
+		merchantIconOverrides.map((m) => [m.merchant_name.toLowerCase(), m.icon_slug])
+	);
+
+	function merchantSlug(txn: Transaction): string | null {
+		const name = (txn.merchant_clean ?? txn.merchant).toLowerCase();
+		return merchantIconMap[name] ?? null;
+	}
+
+	async function openCatPicker(catName: string) {
+		const cat = categoryMap.get(catName);
+		if (!cat) return;
+		catPickerId = cat.id;
+		catPickerSlug = cat.icon ?? null;
+		await ensureIconPicker();
+		catPickerOpen = true;
+	}
+
+	async function handleCatIconSelect(e: CustomEvent<string | null>) {
+		const slug = e.detail;
+		try {
+			await api.updateCategoryIcon(catPickerId, slug);
+			categories = categories.map((c) =>
+				c.id === catPickerId ? { ...c, icon: slug ?? undefined } : c
+			);
+		} catch { /* ignore */ }
+		catPickerId = '';
+	}
+
+	async function openMerchantPicker(txn: Transaction) {
+		merchantPickerName = (txn.merchant_clean ?? txn.merchant).trim().toLowerCase();
+		merchantPickerSlug = merchantSlug(txn);
+		await ensureIconPicker();
+		merchantPickerOpen = true;
+	}
+
+	async function handleMerchantIconSelect(e: CustomEvent<string | null>) {
+		const slug = e.detail;
+		const name = merchantPickerName;
+		try {
+			if (slug) {
+				await api.setMerchantIcon(name, slug);
+				const existing = merchantIconOverrides.findIndex((m) => m.merchant_name === name);
+				if (existing >= 0) {
+					merchantIconOverrides = merchantIconOverrides.map((m) =>
+						m.merchant_name === name ? { ...m, icon_slug: slug } : m
+					);
+				} else {
+					merchantIconOverrides = [...merchantIconOverrides, { merchant_name: name, icon_slug: slug, updated_at: '' }];
+				}
+			} else {
+				await api.deleteMerchantIcon(name);
+				merchantIconOverrides = merchantIconOverrides.filter((m) => m.merchant_name !== name);
+			}
+		} catch { /* ignore */ }
+		merchantPickerName = '';
+	}
 
 	function formatAmount(amount: number) {
 		const abs = Math.abs(amount);
@@ -72,9 +157,18 @@
 					{#each topCategories as cat}
 						{@const budget = budgetMap[cat.category]}
 						{@const pct = budget ? Math.min(100, (Math.abs(cat.total) / budget) * 100) : null}
+						{@const catData = categoryMap.get(cat.category)}
 						<li>
 							<div class="cat-row">
-								<span class="cat-name">{cat.category}</span>
+								<div class="cat-name-wrap">
+									<CategoryIcon
+										name={cat.category}
+										iconSlug={catData?.icon ?? null}
+										size={24}
+										on:click={() => openCatPicker(cat.category)}
+									/>
+									<span class="cat-name">{cat.category}</span>
+								</div>
 								<span class="cat-amount {amountClass(cat.total)}">{formatAmount(cat.total)}</span>
 							</div>
 							{#if pct !== null}
@@ -101,8 +195,13 @@
 					{#each recentTxns as txn}
 						<li class="txn-row">
 							<div class="txn-left">
-								<span class="txn-merchant">{txn.merchant_clean ?? txn.merchant}</span>
-								<span class="txn-cat">{txn.category_name || 'Uncategorized'}</span>
+								<button class="icon-btn" on:click={() => openMerchantPicker(txn)}>
+									<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={34} iconSlug={merchantIconMap[(txn.merchant_clean ?? txn.merchant).toLowerCase()] ?? null} />
+								</button>
+								<div class="txn-info">
+									<span class="txn-merchant">{txn.merchant_clean ?? txn.merchant}</span>
+									<span class="txn-cat">{txn.category_name || 'Uncategorized'}</span>
+								</div>
 							</div>
 							<div class="txn-right">
 								<span class="txn-amount {amountClass(txn.amount)}">{formatAmount(txn.amount)}</span>
@@ -126,6 +225,11 @@
 		</div>
 	{/if}
 </div>
+
+{#if IconPicker}
+	<svelte:component this={IconPicker} bind:open={catPickerOpen} current={catPickerSlug} on:select={handleCatIconSelect} />
+	<svelte:component this={IconPicker} bind:open={merchantPickerOpen} current={merchantPickerSlug} on:select={handleMerchantIconSelect} />
+{/if}
 
 <style>
 	.dashboard {
@@ -225,6 +329,12 @@
 		margin-bottom: 7px;
 	}
 
+	.cat-name-wrap {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
 	.cat-name {
 		font-size: 14px;
 		font-weight: 500;
@@ -273,6 +383,21 @@
 		color: var(--color-expense);
 	}
 
+	/* ── Clickable icon wrapper ───────────────────────── */
+	.icon-btn {
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		border-radius: var(--radius);
+		flex-shrink: 0;
+		transition: opacity 0.12s;
+	}
+
+	.icon-btn:hover {
+		opacity: 0.7;
+	}
+
 	/* ── Transactions ─────────────────────────────────── */
 	.txn-list {
 		list-style: none;
@@ -300,6 +425,13 @@
 	}
 
 	.txn-left {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.txn-info {
 		display: flex;
 		flex-direction: column;
 		gap: 3px;

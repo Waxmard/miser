@@ -4,16 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
+    "icons:generate": "node scripts/build-simple-icons-map.mjs",
+    "dev": "node scripts/build-simple-icons-map.mjs && vite dev",
+    "build": "node scripts/build-simple-icons-map.mjs && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "node scripts/build-simple-icons-map.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "prepare": "husky"
   },
   "dependencies": {
-    "chart.js": "^4.4.7"
+    "chart.js": "^4.4.7",
+    "simple-icons": "^16.15.0"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.8",

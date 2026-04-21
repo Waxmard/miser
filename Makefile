@@ -1,4 +1,4 @@
-.PHONY: build run test lint fmt clean init sync help review organize weekly-report monthly-report budgets
+.PHONY: build run serve test lint fmt clean init sync help review organize weekly-report monthly-report budgets
 
 build:                          ## Build the miser binary
 	go build -o bin/miser ./cmd/miser
@@ -18,6 +18,9 @@ init: build                     ## First-time setup
 sync: build                     ## Sync all sources
 	./bin/miser sync
 
+serve: web-build build          ## Build frontend + Go binary and start the web server
+	./bin/miser serve
+
 daemon: build                   ## Daemon mode
 	./bin/miser daemon
 
@@ -25,7 +28,7 @@ fmt:                            ## Format Go files
 	goimports -w .
 
 lint:                           ## Lint
-	golangci-lint run ./...
+	golangci-lint run ./cmd/... ./internal/...
 
 vet:                            ## Vet
 	go vet ./...

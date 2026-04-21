@@ -2,11 +2,21 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { api, type Transaction, type Category, type Account } from '$lib/api';
+	import { api, type Transaction, type Category, type Account, type MerchantIcon as MerchantIconData } from '$lib/api';
+	import MerchantIcon from '$lib/MerchantIcon.svelte';
+	import type { SvelteComponent, ComponentType } from 'svelte';
+
+	let IconPicker: ComponentType<SvelteComponent> | null = null;
+	async function ensureIconPicker() {
+		if (!IconPicker) {
+			IconPicker = (await import('$lib/IconPicker.svelte')).default;
+		}
+	}
 
 	let transactions: Transaction[] = [];
 	let categories: Category[] = [];
 	let accounts: Account[] = [];
+	let merchantIconOverrides: MerchantIconData[] = [];
 	let loading = true;
 	let error = '';
 
@@ -30,7 +40,11 @@
 		offset = Number(p.get('offset') ?? 0);
 
 		try {
-			[categories, accounts] = await Promise.all([api.categories(), api.accounts()]);
+			[categories, accounts, merchantIconOverrides] = await Promise.all([
+				api.categories(),
+				api.accounts(),
+				api.merchantIcons()
+			]);
 			await loadTransactions();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load';
@@ -42,7 +56,7 @@
 		loading = true;
 		error = '';
 		try {
-			transactions = await api.transactions({ from, to, category, account, q, limit: String(limit), offset: String(offset) });
+			transactions = await api.transactions({ from, to, category, account, q, limit, offset });
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load transactions';
 		} finally {
@@ -70,6 +84,49 @@
 	function prevPage() {
 		offset = Math.max(0, offset - limit);
 		loadTransactions();
+	}
+
+	$: merchantIconMap = Object.fromEntries(
+		merchantIconOverrides.map((m) => [m.merchant_name.toLowerCase(), m.icon_slug])
+	);
+
+	function merchantSlug(txn: Transaction): string | null {
+		const name = (txn.merchant_clean ?? txn.merchant).toLowerCase();
+		return merchantIconMap[name] ?? null;
+	}
+
+	// Merchant icon picker state
+	let merchantPickerOpen = false;
+	let merchantPickerName = '';
+	let merchantPickerSlug: string | null = null;
+
+	async function openMerchantPicker(txn: Transaction) {
+		merchantPickerName = (txn.merchant_clean ?? txn.merchant).trim().toLowerCase();
+		merchantPickerSlug = merchantSlug(txn);
+		await ensureIconPicker();
+		merchantPickerOpen = true;
+	}
+
+	async function handleMerchantIconSelect(e: CustomEvent<string | null>) {
+		const slug = e.detail;
+		const name = merchantPickerName;
+		try {
+			if (slug) {
+				await api.setMerchantIcon(name, slug);
+				const existing = merchantIconOverrides.findIndex((m) => m.merchant_name === name);
+				if (existing >= 0) {
+					merchantIconOverrides = merchantIconOverrides.map((m) =>
+						m.merchant_name === name ? { ...m, icon_slug: slug } : m
+					);
+				} else {
+					merchantIconOverrides = [...merchantIconOverrides, { merchant_name: name, icon_slug: slug, updated_at: '' }];
+				}
+			} else {
+				await api.deleteMerchantIcon(name);
+				merchantIconOverrides = merchantIconOverrides.filter((m) => m.merchant_name !== name);
+			}
+		} catch { /* ignore */ }
+		merchantPickerName = '';
 	}
 
 	function formatAmount(amount: number) {
@@ -125,7 +182,14 @@
 				{#each transactions as txn}
 					<tr>
 						<td class="muted">{txn.date}</td>
-						<td>{txn.merchant_clean ?? txn.merchant}</td>
+						<td>
+								<div class="merchant-cell">
+									<button class="icon-btn" on:click={() => openMerchantPicker(txn)}>
+										<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={28} iconSlug={merchantIconMap[(txn.merchant_clean ?? txn.merchant).toLowerCase()] ?? null} />
+									</button>
+									<span>{txn.merchant_clean ?? txn.merchant}</span>
+								</div>
+							</td>
 						<td class="muted">{txn.category_name || 'Uncategorized'}</td>
 						<td class="muted">{txn.account_name}</td>
 						<td class="right mono" class:income={txn.amount > 0} class:expense={txn.amount < 0}>
@@ -143,6 +207,10 @@
 		</div>
 	{/if}
 </div>
+
+{#if IconPicker}
+	<svelte:component this={IconPicker} bind:open={merchantPickerOpen} current={merchantPickerSlug} on:select={handleMerchantIconSelect} />
+{/if}
 
 <style>
 	.page {
@@ -268,6 +336,26 @@
 
 	.right {
 		text-align: right;
+	}
+
+	.merchant-cell {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.icon-btn {
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		border-radius: var(--radius);
+		flex-shrink: 0;
+		transition: opacity 0.12s;
+	}
+
+	.icon-btn:hover {
+		opacity: 0.7;
 	}
 
 	.mono {
