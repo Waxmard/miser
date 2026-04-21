@@ -185,7 +185,7 @@
 						<td>
 								<div class="merchant-cell">
 									<button class="icon-btn" on:click={() => openMerchantPicker(txn)}>
-										<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={28} iconSlug={merchantSlug(txn)} />
+										<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={28} iconSlug={merchantIconMap[(txn.merchant_clean ?? txn.merchant).toLowerCase()] ?? null} />
 									</button>
 									<span>{txn.merchant_clean ?? txn.merchant}</span>
 								</div>

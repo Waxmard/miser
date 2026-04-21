@@ -196,7 +196,7 @@
 						<li class="txn-row">
 							<div class="txn-left">
 								<button class="icon-btn" on:click={() => openMerchantPicker(txn)}>
-									<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={34} iconSlug={merchantSlug(txn)} />
+									<MerchantIcon merchant={txn.merchant_clean ?? txn.merchant} size={34} iconSlug={merchantIconMap[(txn.merchant_clean ?? txn.merchant).toLowerCase()] ?? null} />
 								</button>
 								<div class="txn-info">
 									<span class="txn-merchant">{txn.merchant_clean ?? txn.merchant}</span>
