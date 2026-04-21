@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/Waxmard/miser/compare/v2.1.0...v2.2.0) (2026-04-21)
+
+
+### Features
+
+* add inline merchant and category icon management to the web UI ([#16](https://github.com/Waxmard/miser/issues/16)) ([7b53925](https://github.com/Waxmard/miser/commit/7b53925e27ab0631480b03215028bfcc3ab9757b))
+
 ## [2.1.0](https://github.com/Waxmard/miser/compare/v2.0.0...v2.1.0) (2026-04-10)
 
 
