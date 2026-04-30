@@ -128,14 +128,14 @@
 
 	h1 {
 		font-family: var(--font-display);
-		font-size: 36px;
+		font-size: 2.118rem;
 		font-weight: 600;
 		color: var(--color-text);
 		letter-spacing: -0.3px;
 	}
 
 	.period {
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 	}
 
@@ -156,7 +156,7 @@
 
 	th {
 		text-align: left;
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.1em;
@@ -169,7 +169,7 @@
 	td {
 		padding: 10px 14px;
 		border-bottom: 1px solid var(--color-border);
-		font-size: 14px;
+		font-size: 0.824rem;
 		vertical-align: middle;
 	}
 
@@ -185,7 +185,7 @@
 
 	.cat-label {
 		font-family: var(--font-display);
-		font-size: 18px;
+		font-size: 1.059rem;
 		font-weight: 600;
 		color: var(--color-text);
 		letter-spacing: -0.2px;
@@ -214,7 +214,7 @@
 
 	/* ── Subrows ──────────────────────────────────────── */
 	tr.subrow td {
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 		padding-top: 6px;
 		padding-bottom: 6px;
@@ -232,7 +232,7 @@
 
 	.mono {
 		font-family: var(--font-mono);
-		font-size: 13px;
+		font-size: 0.765rem;
 	}
 
 	.muted {
@@ -250,7 +250,7 @@
 	/* ── Badges ───────────────────────────────────────── */
 	.badge {
 		display: inline-block;
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 500;
 		padding: 3px 8px;
 		border-radius: 100px;

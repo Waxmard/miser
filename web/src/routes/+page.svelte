@@ -241,7 +241,7 @@
 	}
 
 	.hero-month {
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 500;
 		letter-spacing: 0.14em;
 		color: var(--color-accent);
@@ -250,7 +250,7 @@
 
 	.hero-total {
 		font-family: var(--font-display);
-		font-size: 80px;
+		font-size: 4.706rem;
 		font-weight: 600;
 		color: var(--color-text);
 		line-height: 1;
@@ -258,7 +258,7 @@
 	}
 
 	.hero-sub {
-		font-size: 15px;
+		font-size: 0.882rem;
 		color: var(--color-text-muted);
 		margin-top: 10px;
 		min-height: 1.5em;
@@ -309,7 +309,7 @@
 
 	/* ── Section headers ──────────────────────────────── */
 	h2 {
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
@@ -347,14 +347,14 @@
 	}
 
 	.cat-name {
-		font-size: 14px;
+		font-size: 0.824rem;
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
 	.cat-amount {
 		font-family: var(--font-mono);
-		font-size: 14px;
+		font-size: 0.824rem;
 	}
 
 	.budget-bar-row {
@@ -384,7 +384,7 @@
 
 	.budget-pct {
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: 0.647rem;
 		color: var(--color-text-muted);
 		min-width: 32px;
 		text-align: right;
@@ -449,13 +449,13 @@
 	}
 
 	.txn-merchant {
-		font-size: 15px;
+		font-size: 0.882rem;
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
 	.txn-cat {
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 	}
 
@@ -468,18 +468,18 @@
 
 	.txn-amount {
 		font-family: var(--font-mono);
-		font-size: 14px;
+		font-size: 0.824rem;
 	}
 
 	.txn-date {
-		font-size: 12px;
+		font-size: 0.706rem;
 		color: var(--color-text-muted);
 	}
 
 	.view-all {
 		display: block;
 		margin-top: 16px;
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 		text-align: right;
 		transition: color 0.12s;
@@ -506,7 +506,7 @@
 		padding-left: 20px;
 		margin-top: 4px;
 		font-family: var(--font-display);
-		font-size: 17px;
+		font-size: 1rem;
 		line-height: 1.75;
 		color: var(--color-text-muted);
 	}
@@ -531,10 +531,10 @@
 		text-transform: none;
 	}
 
-	.narrative-body :global(h1) { font-size: 24px; }
-	.narrative-body :global(h2) { font-size: 20px; }
-	.narrative-body :global(h3) { font-size: 17px; }
-	.narrative-body :global(h4) { font-size: 15px; }
+	.narrative-body :global(h1) { font-size: 1.412rem; }
+	.narrative-body :global(h2) { font-size: 1.176rem; }
+	.narrative-body :global(h3) { font-size: 1rem; }
+	.narrative-body :global(h4) { font-size: 0.882rem; }
 
 	.narrative-body :global(h1:first-child),
 	.narrative-body :global(h2:first-child),

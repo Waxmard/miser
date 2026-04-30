@@ -84,7 +84,7 @@
 	}
 
 	.tagline {
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 400;
 		color: var(--color-text-muted);
 		text-transform: uppercase;
@@ -131,7 +131,7 @@
 		display: block;
 		padding: 9px 12px;
 		color: var(--color-text-muted);
-		font-size: 14px;
+		font-size: 0.824rem;
 		font-weight: 400;
 		transition: color 0.12s;
 		border-left: 3px solid transparent;
