@@ -139,7 +139,7 @@
 	<title>Transactions — miser</title>
 </svelte:head>
 
-<div class="page">
+<div>
 	<h1>Transactions</h1>
 
 	<form class="filters" on:submit|preventDefault={applyFilters}>
@@ -213,13 +213,9 @@
 {/if}
 
 <style>
-	.page {
-		max-width: 1600px;
-	}
-
 	h1 {
 		font-family: var(--font-display);
-		font-size: 36px;
+		font-size: 2.118rem;
 		font-weight: 600;
 		color: var(--color-text);
 		margin-bottom: 28px;
@@ -248,7 +244,7 @@
 		color: var(--color-text);
 		padding: 8px 10px;
 		font-family: var(--font-sans);
-		font-size: 13px;
+		font-size: 0.765rem;
 		font-weight: 400;
 		outline: none;
 		transition: border-color 0.12s;
@@ -270,7 +266,7 @@
 		color: #ffffff;
 		padding: 8px 18px;
 		font-family: var(--font-sans);
-		font-size: 13px;
+		font-size: 0.765rem;
 		font-weight: 500;
 		cursor: pointer;
 		letter-spacing: 0.02em;
@@ -299,7 +295,7 @@
 
 	th {
 		text-align: left;
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.1em;
@@ -314,7 +310,7 @@
 		height: 48px;
 		vertical-align: middle;
 		border-bottom: 1px solid var(--color-border);
-		font-size: 14px;
+		font-size: 0.824rem;
 	}
 
 	tbody tr:nth-child(even) td {
@@ -331,7 +327,7 @@
 
 	.muted {
 		color: var(--color-text-muted);
-		font-size: 13px;
+		font-size: 0.765rem;
 	}
 
 	.right {
@@ -377,7 +373,7 @@
 		justify-content: center;
 		gap: 12px;
 		margin-top: 24px;
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 	}
 
@@ -388,7 +384,7 @@
 		color: var(--color-text);
 		padding: 7px 14px;
 		font-family: var(--font-sans);
-		font-size: 13px;
+		font-size: 0.765rem;
 		cursor: pointer;
 		transition:
 			border-color 0.12s,

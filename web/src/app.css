@@ -26,12 +26,15 @@
 	--sidebar-width: 260px;
 }
 
+html {
+	font-size: 19px;
+}
+
 body {
 	font-family: var(--font-sans);
 	font-weight: 400;
 	background: var(--color-bg);
 	color: var(--color-text);
-	font-size: 17px;
 	line-height: 1.6;
 }
 

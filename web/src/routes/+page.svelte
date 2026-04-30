@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { marked } from 'marked';
 	import { api, type TrendsResponse, type Transaction, type Report, type Category, type MerchantIcon as MerchantIconData } from '$lib/api';
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
 	import CategoryIcon from '$lib/CategoryIcon.svelte';
 	import type { SvelteComponent, ComponentType } from 'svelte';
+
+	marked.setOptions({ gfm: true, breaks: true });
 
 	let IconPicker: ComponentType<SvelteComponent> | null = null;
 	async function ensureIconPicker() {
@@ -116,32 +119,41 @@
 		return amount < 0 ? 'expense' : 'income';
 	}
 
-	$: topCategories = trends?.current.slice(0, 5) ?? [];
-	$: budgetMap = Object.fromEntries(
-		(trends?.budgets ?? []).map((b) => [b.category, b.budget])
-	);
-	$: heroTotal =
-		trends?.current
-			.filter((cat) => cat.total < 0)
-			.reduce((sum, cat) => sum + Math.abs(cat.total), 0) ?? 0;
+	$: topCategories = trends?.categories.slice(0, 5) ?? [];
+	function sumExpenses(amounts: number[]) {
+		return amounts.filter((a) => a < 0).reduce((sum, a) => sum + Math.abs(a), 0);
+	}
+
+	$: heroTotal = trends ? sumExpenses(trends.categories.map((c) => c.current)) : 0;
+	$: prevMTDTotal = trends ? sumExpenses(trends.categories.map((c) => c.previous)) : 0;
+	$: momDeltaPct =
+		trends && prevMTDTotal > 0 ? ((heroTotal - prevMTDTotal) / prevMTDTotal) * 100 : null;
 </script>
 
 <svelte:head>
 	<title>Dashboard — miser</title>
 </svelte:head>
 
-<div class="dashboard">
-	<header class="hero">
-		<div class="hero-month">{trends?.current_month?.toUpperCase() ?? 'LOADING'}</div>
-		<div class="hero-total">
-			${heroTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-		</div>
-		<div class="hero-sub">
-			{#if !loading && trends}
-				Compared to last month
-			{/if}
+<div>
+	<header class="stats">
+		<div class="stat">
+			<div class="stat-label">{trends?.current_month?.toUpperCase() ?? 'LOADING'} — SPENT</div>
+			<div class="stat-value">
+				${heroTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+			</div>
+			<div class="stat-sub">
+				{#if !loading && momDeltaPct !== null}
+					<span class="delta {momDeltaPct >= 0 ? 'expense' : 'income'}">
+						{momDeltaPct >= 0 ? '▲' : '▼'} {Math.abs(momDeltaPct).toFixed(1)}%
+					</span>
+					vs same point last month (${prevMTDTotal.toLocaleString('en-US', { maximumFractionDigits: 0 })})
+				{:else if !loading}
+					No prior month data
+				{/if}
+			</div>
 		</div>
 	</header>
+
 	<hr class="divider" />
 
 	{#if loading}
@@ -155,8 +167,8 @@
 				<h2>Top Categories</h2>
 				<ul class="category-list">
 					{#each topCategories as cat}
-						{@const budget = budgetMap[cat.category]}
-						{@const pct = budget ? Math.min(100, (Math.abs(cat.total) / budget) * 100) : null}
+						{@const pct = cat.budget_used_pct ?? null}
+						{@const barPct = pct !== null ? Math.min(100, pct) : null}
 						{@const catData = categoryMap.get(cat.category)}
 						<li>
 							<div class="cat-row">
@@ -169,15 +181,15 @@
 									/>
 									<span class="cat-name">{cat.category}</span>
 								</div>
-								<span class="cat-amount {amountClass(cat.total)}">{formatAmount(cat.total)}</span>
+								<span class="cat-amount {amountClass(cat.current)}">{formatAmount(cat.current)}</span>
 							</div>
-							{#if pct !== null}
+							{#if barPct !== null && pct !== null}
 								<div class="budget-bar-row">
 									<div class="budget-bar">
 										<div
 											class="budget-fill"
 											class:over={pct >= 100}
-											style="width: {pct}%"
+											style="width: {barPct}%"
 										></div>
 									</div>
 									<span class="budget-pct" class:over={pct >= 100}>{pct.toFixed(0)}%</span>
@@ -212,17 +224,98 @@
 				</ul>
 				<a href="/transactions" class="view-all">View all transactions →</a>
 			</section>
-
-			<!-- Latest report narrative -->
-			{#if report}
-				<section class="card narrative">
-					<h2>Monthly Report — {report.year}/{String(report.month).padStart(2, '0')}</h2>
-					<div class="narrative-body">
-						<p>{report.narrative}</p>
-					</div>
-				</section>
-			{/if}
 		</div>
+
+		{#if report}
+			<section class="report-header">
+				<h2>Monthly Report — {report.year}/{String(report.month).padStart(2, '0')}</h2>
+			</section>
+			{#if report.sections && report.sections.length > 0}
+				<div class="report-sections">
+					{#each report.sections as section}
+						{#if section.type === 'stat'}
+							<div class="card report-stat-card">
+								<div class="stat-label">{section.title.toUpperCase()}</div>
+								<div class="report-stat-value">{section.value}</div>
+								{#if section.delta}
+									<div class="report-stat-row">
+										<span class="report-stat-delta {section.sign === 'positive' ? 'income' : section.sign === 'negative' ? 'expense' : 'muted'}">
+											{section.delta}
+										</span>
+										{#if section.note}
+											<span class="report-stat-note">{section.note}</span>
+										{/if}
+									</div>
+								{:else if section.note}
+									<div class="report-stat-note">{section.note}</div>
+								{/if}
+							</div>
+						{:else if section.type === 'scorecard'}
+							<div class="card">
+								<h2>{section.title}</h2>
+								<ul class="report-item-list">
+									{#each section.items ?? [] as item}
+										{@const pct = item.pct ?? 0}
+										<li class="report-item">
+											<div class="report-item-row">
+												<span class="report-item-label">{item.label}</span>
+												<span class="report-item-value {item.sign === 'positive' ? 'income' : item.sign === 'negative' ? 'expense' : ''}">{item.value}</span>
+											</div>
+											{#if item.pct !== undefined}
+												<div class="budget-bar-row">
+													<div class="budget-bar">
+														<div class="budget-fill" class:over={pct >= 100} style="width: {Math.min(100, pct)}%"></div>
+													</div>
+													<span class="budget-pct" class:over={pct >= 100}>{pct.toFixed(0)}%</span>
+												</div>
+											{/if}
+											{#if item.note}
+												<div class="report-item-note">{item.note}</div>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{:else if section.type === 'movers' || section.type === 'transactions'}
+							<div class="card">
+								<h2>{section.title}</h2>
+								<ul class="report-item-list">
+									{#each section.items ?? [] as item}
+										<li class="report-item">
+											<div class="report-item-row">
+												<span class="report-item-label">{item.label}</span>
+												<span class="report-item-value {item.sign === 'positive' ? 'income' : item.sign === 'negative' ? 'expense' : ''}">{item.value ?? item.delta ?? ''}</span>
+											</div>
+											{#if item.note}
+												<div class="report-item-note">{item.note}</div>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{:else if section.type === 'takeaways'}
+							<div class="card report-takeaways">
+								<h2>{section.title}</h2>
+								<ol class="takeaway-list">
+									{#each section.items ?? [] as item, i}
+										<li class="takeaway-item">
+											<span class="takeaway-num">{i + 1}</span>
+											<span class="takeaway-text">{item.label}</span>
+										</li>
+									{/each}
+								</ol>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{:else if report.narrative}
+				<article class="narrative">
+					<div class="narrative-body">
+						{@html marked.parse(report.narrative)}
+					</div>
+				</article>
+			{/if}
+		{/if}
 	{/if}
 </div>
 
@@ -232,43 +325,52 @@
 {/if}
 
 <style>
-	.dashboard {
-		max-width: 1600px;
-	}
-
-	/* ── Hero ─────────────────────────────────────────── */
-	.hero {
+	/* ── Stats band (extensible row of stat cells) ────── */
+	.stats {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 48px 64px;
 		margin-bottom: 32px;
 	}
 
-	.hero-month {
-		font-size: 11px;
+	.stat {
+		min-width: 0;
+	}
+
+	.stat-label {
+		font-size: 0.647rem;
 		font-weight: 500;
 		letter-spacing: 0.14em;
 		color: var(--color-accent);
 		margin-bottom: 8px;
 	}
 
-	.hero-total {
+	.stat-value {
 		font-family: var(--font-display);
-		font-size: 80px;
+		font-size: 4.706rem;
 		font-weight: 600;
 		color: var(--color-text);
 		line-height: 1;
 		letter-spacing: -1px;
 	}
 
-	.hero-sub {
-		font-size: 15px;
+	.stat-sub {
+		font-size: 0.882rem;
 		color: var(--color-text-muted);
 		margin-top: 10px;
 		min-height: 1.5em;
 	}
 
+	.delta {
+		font-family: var(--font-mono);
+		font-weight: 500;
+		margin-right: 6px;
+	}
+
 	.divider {
 		border: none;
 		border-top: 1px solid var(--color-border);
-		margin-bottom: 36px;
+		margin-bottom: 32px;
 	}
 
 	/* ── Loading / error states ───────────────────────── */
@@ -285,8 +387,14 @@
 	/* ── Grid ─────────────────────────────────────────── */
 	.grid {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: 1fr;
 		gap: 24px;
+	}
+
+	@media (min-width: 700px) {
+		.grid {
+			grid-template-columns: 1fr 1fr;
+		}
 	}
 
 	.card {
@@ -298,7 +406,7 @@
 
 	/* ── Section headers ──────────────────────────────── */
 	h2 {
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
@@ -336,14 +444,14 @@
 	}
 
 	.cat-name {
-		font-size: 14px;
+		font-size: 0.824rem;
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
 	.cat-amount {
 		font-family: var(--font-mono);
-		font-size: 14px;
+		font-size: 0.824rem;
 	}
 
 	.budget-bar-row {
@@ -373,7 +481,7 @@
 
 	.budget-pct {
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: 0.647rem;
 		color: var(--color-text-muted);
 		min-width: 32px;
 		text-align: right;
@@ -438,13 +546,13 @@
 	}
 
 	.txn-merchant {
-		font-size: 15px;
+		font-size: 0.882rem;
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
 	.txn-cat {
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 	}
 
@@ -457,18 +565,18 @@
 
 	.txn-amount {
 		font-family: var(--font-mono);
-		font-size: 14px;
+		font-size: 0.824rem;
 	}
 
 	.txn-date {
-		font-size: 12px;
+		font-size: 0.706rem;
 		color: var(--color-text-muted);
 	}
 
 	.view-all {
 		display: block;
 		margin-top: 16px;
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 		text-align: right;
 		transition: color 0.12s;
@@ -478,24 +586,150 @@
 		color: var(--color-accent);
 	}
 
-	/* ── Narrative ────────────────────────────────────── */
-	.narrative {
+	/* ── Report sections (structured, below grid) ──────── */
+	.report-header {
+		margin-top: 32px;
+		margin-bottom: 16px;
+	}
+
+	.report-sections {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: 24px;
+	}
+
+	.report-takeaways {
 		grid-column: 1 / -1;
+	}
+
+	/* stat card */
+	.report-stat-card {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.report-stat-value {
+		font-family: var(--font-mono);
+		font-size: 2rem;
+		font-weight: 600;
+		color: var(--color-text);
+		line-height: 1.1;
+		margin: 4px 0;
+	}
+
+	.report-stat-row {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.report-stat-delta {
+		font-family: var(--font-mono);
+		font-size: 0.882rem;
+		font-weight: 500;
+	}
+
+	.report-stat-note {
+		font-size: 0.824rem;
+		color: var(--color-text-muted);
+	}
+
+	.muted {
+		color: var(--color-text-muted);
+	}
+
+	/* item lists (scorecard, movers, transactions) */
+	.report-item-list {
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.report-item {
+		padding: 10px 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.report-item:last-child {
+		border-bottom: none;
+	}
+
+	.report-item-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 8px;
+	}
+
+	.report-item-label {
+		font-size: 0.824rem;
+		font-weight: 500;
+		color: var(--color-text);
+		flex: 1;
+		min-width: 0;
+	}
+
+	.report-item-value {
+		font-family: var(--font-mono);
+		font-size: 0.824rem;
+		white-space: nowrap;
+	}
+
+	.report-item-note {
+		font-size: 0.706rem;
+		color: var(--color-text-muted);
+		margin-top: 3px;
+	}
+
+	/* takeaways */
+	.takeaway-list {
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.takeaway-item {
+		display: flex;
+		align-items: baseline;
+		gap: 12px;
+	}
+
+	.takeaway-num {
+		font-family: var(--font-mono);
+		font-size: 0.706rem;
+		font-weight: 600;
+		color: var(--color-accent);
+		min-width: 14px;
+		flex-shrink: 0;
+	}
+
+	.takeaway-text {
+		font-size: 0.882rem;
+		color: var(--color-text);
+		line-height: 1.5;
+	}
+
+	/* ── Narrative fallback (old reports) ───────────────── */
+	.narrative {
+		margin-top: 8px;
 	}
 
 	.narrative-body {
 		border-left: 2px solid var(--color-accent);
-		padding-left: 20px;
-		margin-top: 4px;
-	}
-
-	.narrative-body p {
+		padding-left: 24px;
 		font-family: var(--font-display);
-		font-style: italic;
-		font-size: 17px;
+		font-size: 1rem;
 		line-height: 1.75;
 		color: var(--color-text-muted);
 	}
+
+	.narrative-body :global(p) { margin-bottom: 12px; }
+	.narrative-body :global(p:last-child) { margin-bottom: 0; }
+	.narrative-body :global(strong) { font-weight: 600; color: var(--color-text); }
+	.narrative-body :global(em) { font-style: italic; }
 
 	/* ── Amount colors ────────────────────────────────── */
 	.income {

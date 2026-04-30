@@ -223,7 +223,7 @@
 		border-radius: var(--radius);
 		padding: 5px 14px;
 		font-family: var(--font-sans);
-		font-size: 13px;
+		font-size: 0.765rem;
 		font-weight: 500;
 		color: var(--color-text-muted);
 		cursor: pointer;
@@ -249,7 +249,7 @@
 		border: none;
 		cursor: pointer;
 		color: var(--color-text-muted);
-		font-size: 16px;
+		font-size: 0.941rem;
 		padding: 2px 6px;
 		border-radius: var(--radius);
 		transition: color 0.1s;
@@ -275,7 +275,7 @@
 		color: var(--color-text);
 		padding: 8px 12px;
 		font-family: var(--font-sans);
-		font-size: 14px;
+		font-size: 0.824rem;
 		outline: none;
 		transition: border-color 0.12s;
 	}
@@ -295,7 +295,7 @@
 		color: var(--color-text-muted);
 		padding: 8px 12px;
 		font-family: var(--font-sans);
-		font-size: 13px;
+		font-size: 0.765rem;
 		cursor: pointer;
 		white-space: nowrap;
 		transition:
@@ -310,7 +310,7 @@
 
 	.result-count {
 		padding: 6px 20px;
-		font-size: 11px;
+		font-size: 0.647rem;
 		color: var(--color-text-muted);
 		letter-spacing: 0.04em;
 		flex-shrink: 0;
@@ -364,7 +364,7 @@
 	}
 
 	.emoji-cell {
-		font-size: 20px;
+		font-size: 1.176rem;
 		line-height: 1;
 	}
 
@@ -373,7 +373,7 @@
 	}
 
 	.icon-label {
-		font-size: 10px;
+		font-size: 0.588rem;
 		color: var(--color-text-muted);
 		line-height: 1.2;
 		max-width: 80px;

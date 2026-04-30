@@ -1,29 +1,14 @@
-# Category Hierarchy
+# Task: Organize categories into a parent/child hierarchy
 
-Claude Code workflow to organize flat categories into a parent/child hierarchy. Run once after the initial Monarch import (or any time you want to reorganize).
+You are organizing personal finance categories into a logical hierarchy for a spending tracker. Group flat categories into parent/child relationships.
 
-## When to run
-
-- After `miser import-monarch` — you'll have many flat categories from Monarch data
-- When new categories have accumulated and you want to group them
-
-## Usage
-
-```bash
-claude -p "$(cat /path/to/miser/cron/category-hierarchy.md)" --model sonnet --allowedTools "Bash,Read,Write"
-```
-
-## Prompt
-
-You are organizing personal finance categories into a logical hierarchy for a spending tracker. Your job is to group flat categories into parent/child relationships.
-
-### Step 1: Get the current categories
+## Step 1: Get the current categories
 
 ```bash
 miser internal process hierarchy
 ```
 
-This returns JSON showing the existing hierarchy state:
+Returns JSON:
 
 ```json
 {
@@ -53,7 +38,7 @@ If `category_count` is 0, there is nothing to organize — stop here.
 
 If `ungrouped` is empty, the hierarchy is already complete. Print a summary table of the current groups and their children, then stop — do not write any files or run any further commands.
 
-### Step 2: Design a hierarchy
+## Step 2: Design a hierarchy
 
 Start from the existing groups in `current_groups` and place any `ungrouped` categories into appropriate groups. You may also reorganize existing groups if a better structure makes sense.
 
@@ -65,11 +50,11 @@ Guidelines:
 - Do **not** include "Uncategorized" in any group
 - Common useful groups: Housing, Food & Drink, Transportation, Health & Wellness, Entertainment, Finance, Shopping, Income, Personal
 
-### Step 3: Write your hierarchy
+## Step 3: Write your hierarchy
 
-Write a JSON file to `/tmp/miser-hierarchy.json` with the **complete** hierarchy (all groups and all children, not just changes):
+Write `/tmp/miser-hierarchy.json` with the **complete** hierarchy (all groups and all children, not just changes). Treat the schema as a contract.
 
-```json
+<output_schema>
 {
   "groups": [
     {
@@ -86,20 +71,15 @@ Write a JSON file to `/tmp/miser-hierarchy.json` with the **complete** hierarchy
     }
   ]
 }
-```
+</output_schema>
 
 Only include groups that have at least one child. Do not list a category as a child if it doesn't exist in the categories list from Step 1.
 
-### Step 4: Apply the hierarchy
+## Step 4: Persist and verify
 
 ```bash
 miser internal write hierarchy /tmp/miser-hierarchy.json
-```
-
-### Step 5: Verify
-
-```bash
 miser categories
 ```
 
-Categories should now appear grouped under their parents. Run again with `--from` and `--to` flags to see the hierarchy with transaction data.
+Categories should now appear grouped under their parents. If they do not, stop and report the error.

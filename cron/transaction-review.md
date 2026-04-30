@@ -1,39 +1,14 @@
-# Transaction Review
+# Task: Review and finalize pending transaction categorizations
 
-Claude Code workflow to review and approve pending transaction categorizations. Run manually whenever needed, or set up a bi-weekly cron.
+You are reviewing transaction categorizations for a personal finance tracker. Approve correct categorizations and fix any that are wrong.
 
-## Schedule
-
-**Manual invocation (recommended):**
-
-```bash
-claude -p "$(cat /path/to/miser/cron/transaction-review.md)" --model sonnet --allowedTools "Bash,Read,Write"
-```
-
-**Or bi-weekly cron (every other Monday at 9am):**
-
-```crontab
-# Every other Monday at 9am (bi-weekly)
-0 9 1-7,15-21 * 1 claude -p "Follow the instructions below exactly. Execute each step in order. Do not ask questions. $(cat /path/to/miser/cron/transaction-review.md)" --model sonnet --allowedTools "Bash,Read,Write"
-```
-
-Flags:
-- `--model sonnet` — Sonnet follows multi-step instructions reliably; Haiku tends to ask clarifying questions instead of executing
-- `--allowedTools "Bash,Read,Write"` — pre-approves tools so there are no interactive permission prompts
-
-Note: `--bare` is not used because it strips authentication context needed for the CLI.
-
-## Prompt
-
-You are reviewing transaction categorizations for a personal finance tracker. Your job is to approve correct categorizations and fix any that are wrong.
-
-### Step 1: Gather pending transactions
+## Step 1: Gather pending transactions
 
 ```bash
 miser internal process review
 ```
 
-This returns JSON with the structure:
+Returns JSON:
 
 ```json
 {
@@ -59,46 +34,40 @@ This returns JSON with the structure:
 }
 ```
 
-If `pending_count` is 0, there is nothing to review — stop here.
+If `pending_count` is 0, there is nothing to review — stop here and report "no pending transactions".
 
-### Step 2: Review each transaction
+## Step 2: Review each transaction
 
 For each transaction, decide:
 
 - **approve** — the assigned category is correct
 - **change** — the category is wrong; pick the correct one from the `categories` list
 
-Use these guidelines:
+Guidelines:
+
 - Trust high-confidence categorizations (≥ 0.85) unless obviously wrong
 - Pay close attention to low-confidence ones (< 0.70) — these are most likely to be miscategorized
 - Prefer the most specific subcategory (e.g. "Rent" over "Housing"), but use the parent if the subcategory is ambiguous
 - Amounts are negative for expenses
 
-### Step 3: Write your decisions
+## Step 3: Write your decisions
 
-Write a JSON file to `/tmp/miser-review.json` with this exact structure:
+Write `/tmp/miser-review.json` matching this schema exactly. Every transaction from Step 1 must have an entry.
 
-```json
+<output_schema>
 {
   "results": [
     { "transaction_id": "01HXY...", "action": "approve" },
     { "transaction_id": "01HXZ...", "action": "change", "category": "Dining" }
   ]
 }
-```
+</output_schema>
 
-Every transaction from Step 1 must have an entry — either `"approve"` or `"change"`.
-
-### Step 4: Save the decisions
+## Step 4: Persist and verify
 
 ```bash
 miser internal write review /tmp/miser-review.json
-```
-
-Verify no transactions remain pending:
-
-```bash
 miser internal process review
 ```
 
-The `pending_count` should be 0.
+The verify command must show `pending_count` is 0. If it does not, stop and report the error.

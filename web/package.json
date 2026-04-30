@@ -7,6 +7,7 @@
     "icons:generate": "node scripts/build-simple-icons-map.mjs",
     "dev": "node scripts/build-simple-icons-map.mjs && vite dev",
     "build": "node scripts/build-simple-icons-map.mjs && vite build",
+    "postbuild": "echo > dist/.gitkeep",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "chart.js": "^4.4.7",
+    "marked": "^18.0.2",
     "simple-icons": "^16.15.0"
   },
   "devDependencies": {

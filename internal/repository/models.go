@@ -94,11 +94,31 @@ type SyncState struct {
 	Metadata       *string
 }
 
+type ReportSectionItem struct {
+	Label string  `json:"label"`
+	Value string  `json:"value,omitempty"`
+	Delta string  `json:"delta,omitempty"`
+	Note  string  `json:"note,omitempty"`
+	Pct   float64 `json:"pct,omitempty"`
+	Sign  string  `json:"sign,omitempty"`
+}
+
+type ReportSection struct {
+	Type  string              `json:"type"`
+	Title string              `json:"title"`
+	Value string              `json:"value,omitempty"`
+	Delta string              `json:"delta,omitempty"`
+	Sign  string              `json:"sign,omitempty"`
+	Note  string              `json:"note,omitempty"`
+	Items []ReportSectionItem `json:"items,omitempty"`
+}
+
 type Report struct {
 	ID        string
 	Year      int
 	Month     int
 	Narrative string
+	Sections  []ReportSection
 	Data      string
 	CreatedAt time.Time
 }

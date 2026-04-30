@@ -1,0 +1,13 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/miser ./cmd/miser"
+  bin = "./tmp/miser"
+  args_bin = ["serve"]
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "bin", "web/node_modules", "web/dist", "web/.svelte-kit"]
+  delay = 200
+
+[misc]
+  clean_on_exit = true

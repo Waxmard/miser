@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type TrendsResponse, type CategoryTotal } from '$lib/api';
+	import { api, type TrendsResponse } from '$lib/api';
 
 	let trends: TrendsResponse | null = null;
 	let loading = true;
@@ -20,7 +20,7 @@
 		return '$' + Math.abs(amount).toFixed(2);
 	}
 
-	function pctChange(current: number, previous: number): string {
+	function formatPct(current: number, previous: number): string {
 		if (previous === 0) return '—';
 		const pct = ((Math.abs(current) - Math.abs(previous)) / Math.abs(previous)) * 100;
 		return (pct > 0 ? '+' : '') + pct.toFixed(0) + '%';
@@ -30,21 +30,13 @@
 		if (previous === 0) return '';
 		return Math.abs(current) > Math.abs(previous) ? 'worse' : 'better';
 	}
-
-	$: budgetMap = Object.fromEntries(
-		(trends?.budgets ?? []).map((b) => [b.category, b.budget])
-	);
-
-	$: previousMap = Object.fromEntries(
-		(trends?.previous ?? []).map((c) => [c.category, c.total])
-	);
 </script>
 
 <svelte:head>
 	<title>Trends — miser</title>
 </svelte:head>
 
-<div class="page">
+<div>
 	<div class="header">
 		<h1>Trends</h1>
 		{#if trends}
@@ -69,27 +61,26 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each trends.current as cat}
-					{@const prev = previousMap[cat.category] ?? 0}
-					{@const budget = budgetMap[cat.category] ?? 0}
-					{@const over = budget > 0 && Math.abs(cat.total) > budget}
+				{#each trends.categories as cat}
+					{@const budget = cat.budget ?? 0}
+					{@const over = cat.pacing === 'over'}
 					<tr class:parent={cat.subcategories && cat.subcategories.length > 0}>
 						<td>
 						<div class="cat-label">{cat.category}</div>
-						{#if budgetMap[cat.category] > 0}
-							{@const catPct = Math.min(100, (Math.abs(cat.total) / budgetMap[cat.category]) * 100)}
+						{#if budget > 0 && cat.budget_used_pct !== undefined}
+							{@const barPct = Math.min(100, cat.budget_used_pct)}
 							<div class="parent-bar">
 								<div
 									class="parent-bar-fill"
-									class:over={catPct >= 100}
-									style="width: {catPct}%"
+									class:over
+									style="width: {barPct}%"
 								></div>
 							</div>
 						{/if}
 					</td>
-						<td class="right mono">{formatAmount(cat.total)}</td>
-						<td class="right mono muted">{formatAmount(prev)}</td>
-						<td class="right mono {pctClass(cat.total, prev)}">{pctChange(cat.total, prev)}</td>
+						<td class="right mono">{formatAmount(cat.current)}</td>
+						<td class="right mono muted">{formatAmount(cat.previous)}</td>
+						<td class="right mono {pctClass(cat.current, cat.previous)}">{formatPct(cat.current, cat.previous)}</td>
 						<td class="right mono muted">{budget > 0 ? formatAmount(budget) : '—'}</td>
 						<td>
 							{#if budget > 0}
@@ -101,12 +92,11 @@
 					</tr>
 					{#if cat.subcategories}
 						{#each cat.subcategories as sub}
-							{@const subPrev = previousMap[sub.category] ?? 0}
 							<tr class="subrow">
 								<td class="sub-name">{sub.category}</td>
-								<td class="right mono">{formatAmount(sub.total)}</td>
-								<td class="right mono muted">{formatAmount(subPrev)}</td>
-								<td class="right mono {pctClass(sub.total, subPrev)}">{pctChange(sub.total, subPrev)}</td>
+								<td class="right mono">{formatAmount(sub.current)}</td>
+								<td class="right mono muted">{formatAmount(sub.previous)}</td>
+								<td class="right mono {pctClass(sub.current, sub.previous)}">{formatPct(sub.current, sub.previous)}</td>
 								<td class="right mono muted">—</td>
 								<td></td>
 							</tr>
@@ -119,10 +109,6 @@
 </div>
 
 <style>
-	.page {
-		max-width: 1600px;
-	}
-
 	.header {
 		display: flex;
 		align-items: baseline;
@@ -132,14 +118,14 @@
 
 	h1 {
 		font-family: var(--font-display);
-		font-size: 36px;
+		font-size: 2.118rem;
 		font-weight: 600;
 		color: var(--color-text);
 		letter-spacing: -0.3px;
 	}
 
 	.period {
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 	}
 
@@ -160,7 +146,7 @@
 
 	th {
 		text-align: left;
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.1em;
@@ -173,7 +159,7 @@
 	td {
 		padding: 10px 14px;
 		border-bottom: 1px solid var(--color-border);
-		font-size: 14px;
+		font-size: 0.824rem;
 		vertical-align: middle;
 	}
 
@@ -189,7 +175,7 @@
 
 	.cat-label {
 		font-family: var(--font-display);
-		font-size: 18px;
+		font-size: 1.059rem;
 		font-weight: 600;
 		color: var(--color-text);
 		letter-spacing: -0.2px;
@@ -218,7 +204,7 @@
 
 	/* ── Subrows ──────────────────────────────────────── */
 	tr.subrow td {
-		font-size: 13px;
+		font-size: 0.765rem;
 		color: var(--color-text-muted);
 		padding-top: 6px;
 		padding-bottom: 6px;
@@ -236,7 +222,7 @@
 
 	.mono {
 		font-family: var(--font-mono);
-		font-size: 13px;
+		font-size: 0.765rem;
 	}
 
 	.muted {
@@ -254,7 +240,7 @@
 	/* ── Badges ───────────────────────────────────────── */
 	.badge {
 		display: inline-block;
-		font-size: 11px;
+		font-size: 0.647rem;
 		font-weight: 500;
 		padding: 3px 8px;
 		border-radius: 100px;

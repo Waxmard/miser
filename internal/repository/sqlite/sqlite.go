@@ -99,6 +99,12 @@ func (d *DB) Migrate(ctx context.Context) error {
 		}
 	}
 
+	if version < 3 {
+		if err := migrateV3(ctx, tx); err != nil {
+			return fmt.Errorf("migrate v3: %w", err)
+		}
+	}
+
 	return tx.Commit()
 }
 
@@ -226,6 +232,21 @@ func migrateV2(ctx context.Context, tx *sql.Tx) error {
 		)`,
 
 		`INSERT INTO schema_version (version) VALUES (2)`,
+	}
+
+	for _, stmt := range stmts {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("exec %q: %w", stmt[:40], err)
+		}
+	}
+
+	return nil
+}
+
+func migrateV3(ctx context.Context, tx *sql.Tx) error {
+	stmts := []string{
+		`ALTER TABLE reports ADD COLUMN sections TEXT`,
+		`INSERT INTO schema_version (version) VALUES (3)`,
 	}
 
 	for _, stmt := range stmts {
