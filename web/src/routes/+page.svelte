@@ -20,6 +20,7 @@
 	let report: Report | null = null;
 	let categories: Category[] = [];
 	let merchantIconOverrides: MerchantIconData[] = [];
+	let prevMTDTotal: number | null = null;
 	let loading = true;
 	let error = '';
 
@@ -33,15 +34,43 @@
 	let merchantPickerName = '';
 	let merchantPickerSlug: string | null = null;
 
+	function ymd(year: number, monthIdx: number, day: number) {
+		return `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+	}
+
+	function previousPeriodRange(today: Date) {
+		const year = today.getFullYear();
+		const monthIdx = today.getMonth();
+		const day = today.getDate();
+		const prevYear = monthIdx === 0 ? year - 1 : year;
+		const prevMonthIdx = monthIdx === 0 ? 11 : monthIdx - 1;
+		const prevMonthLastDay = new Date(prevYear, prevMonthIdx + 1, 0).getDate();
+		const prevDay = Math.min(day, prevMonthLastDay);
+		return {
+			from: ymd(prevYear, prevMonthIdx, 1),
+			to: ymd(prevYear, prevMonthIdx, prevDay)
+		};
+	}
+
+	function sumExpenses(txns: Transaction[]) {
+		return txns
+			.filter((t) => t.amount < 0)
+			.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+	}
+
 	onMount(async () => {
 		try {
-			[trends, recentTxns, report, categories, merchantIconOverrides] = await Promise.all([
+			const prevRange = previousPeriodRange(new Date());
+			let prevTxns: Transaction[];
+			[trends, recentTxns, report, categories, merchantIconOverrides, prevTxns] = await Promise.all([
 				api.trends(),
 				api.transactions({ limit: 10 }),
 				api.latestReport(),
 				api.categories(),
-				api.merchantIcons()
+				api.merchantIcons(),
+				api.transactions({ from: prevRange.from, to: prevRange.to, limit: 10000 })
 			]);
+			prevMTDTotal = sumExpenses(prevTxns);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load dashboard';
 		} finally {
@@ -127,6 +156,11 @@
 		trends?.current
 			.filter((cat) => cat.total < 0)
 			.reduce((sum, cat) => sum + Math.abs(cat.total), 0) ?? 0;
+
+	$: momDeltaPct =
+		prevMTDTotal !== null && prevMTDTotal > 0
+			? ((heroTotal - prevMTDTotal) / prevMTDTotal) * 100
+			: null;
 </script>
 
 <svelte:head>
@@ -134,17 +168,25 @@
 </svelte:head>
 
 <div>
-	<header class="hero">
-		<div class="hero-month">{trends?.current_month?.toUpperCase() ?? 'LOADING'}</div>
-		<div class="hero-total">
-			${heroTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-		</div>
-		<div class="hero-sub">
-			{#if !loading && trends}
-				Compared to last month
-			{/if}
+	<header class="stats">
+		<div class="stat">
+			<div class="stat-label">{trends?.current_month?.toUpperCase() ?? 'LOADING'} — SPENT</div>
+			<div class="stat-value">
+				${heroTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+			</div>
+			<div class="stat-sub">
+				{#if !loading && momDeltaPct !== null}
+					<span class="delta {momDeltaPct >= 0 ? 'expense' : 'income'}">
+						{momDeltaPct >= 0 ? '▲' : '▼'} {Math.abs(momDeltaPct).toFixed(1)}%
+					</span>
+					vs same point last month (${prevMTDTotal!.toLocaleString('en-US', { maximumFractionDigits: 0 })})
+				{:else if !loading}
+					No prior month data
+				{/if}
+			</div>
 		</div>
 	</header>
+
 	<hr class="divider" />
 
 	{#if loading}
@@ -215,17 +257,16 @@
 				</ul>
 				<a href="/transactions" class="view-all">View all transactions →</a>
 			</section>
-
-			<!-- Latest report narrative -->
-			{#if report}
-				<section class="card narrative">
-					<h2>Monthly Report — {report.year}/{String(report.month).padStart(2, '0')}</h2>
-					<div class="narrative-body">
-						{@html marked.parse(report.narrative)}
-					</div>
-				</section>
-			{/if}
 		</div>
+
+		{#if report}
+			<article class="narrative">
+				<h2>Monthly Report — {report.year}/{String(report.month).padStart(2, '0')}</h2>
+				<div class="narrative-body">
+					{@html marked.parse(report.narrative)}
+				</div>
+			</article>
+		{/if}
 	{/if}
 </div>
 
@@ -235,12 +276,19 @@
 {/if}
 
 <style>
-	/* ── Hero ─────────────────────────────────────────── */
-	.hero {
+	/* ── Stats band (extensible row of stat cells) ────── */
+	.stats {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 48px 64px;
 		margin-bottom: 32px;
 	}
 
-	.hero-month {
+	.stat {
+		min-width: 0;
+	}
+
+	.stat-label {
 		font-size: 0.647rem;
 		font-weight: 500;
 		letter-spacing: 0.14em;
@@ -248,7 +296,7 @@
 		margin-bottom: 8px;
 	}
 
-	.hero-total {
+	.stat-value {
 		font-family: var(--font-display);
 		font-size: 4.706rem;
 		font-weight: 600;
@@ -257,17 +305,23 @@
 		letter-spacing: -1px;
 	}
 
-	.hero-sub {
+	.stat-sub {
 		font-size: 0.882rem;
 		color: var(--color-text-muted);
 		margin-top: 10px;
 		min-height: 1.5em;
 	}
 
+	.delta {
+		font-family: var(--font-mono);
+		font-weight: 500;
+		margin-right: 6px;
+	}
+
 	.divider {
 		border: none;
 		border-top: 1px solid var(--color-border);
-		margin-bottom: 36px;
+		margin-bottom: 32px;
 	}
 
 	/* ── Loading / error states ───────────────────────── */
@@ -288,15 +342,9 @@
 		gap: 24px;
 	}
 
-	@media (min-width: 900px) {
+	@media (min-width: 700px) {
 		.grid {
 			grid-template-columns: 1fr 1fr;
-		}
-	}
-
-	@media (min-width: 1500px) {
-		.grid {
-			grid-template-columns: 1fr 1fr 1.2fr;
 		}
 	}
 
@@ -489,26 +537,37 @@
 		color: var(--color-accent);
 	}
 
-	/* ── Narrative ────────────────────────────────────── */
+	/* ── Narrative (full-width band below grid) ───────── */
 	.narrative {
-		grid-column: 1 / -1;
-	}
-
-	@media (min-width: 1500px) {
-		.narrative {
-			grid-column: 3 / 4;
-			grid-row: 1;
-		}
+		margin-top: 32px;
 	}
 
 	.narrative-body {
 		border-left: 2px solid var(--color-accent);
-		padding-left: 20px;
+		padding-left: 24px;
 		margin-top: 4px;
 		font-family: var(--font-display);
 		font-size: 1rem;
 		line-height: 1.75;
 		color: var(--color-text-muted);
+	}
+
+	@media (min-width: 1100px) {
+		.narrative-body {
+			column-count: 2;
+			column-gap: 56px;
+		}
+
+		.narrative-body :global(p),
+		.narrative-body :global(li) {
+			break-inside: avoid;
+		}
+	}
+
+	@media (min-width: 1800px) {
+		.narrative-body {
+			column-count: 3;
+		}
 	}
 
 	.narrative-body :global(p) {

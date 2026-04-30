@@ -157,7 +157,6 @@
 	}
 
 	.content-inner {
-		max-width: 2200px;
 		margin: 0 auto;
 	}
 
