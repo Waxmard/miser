@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { marked } from 'marked';
 	import { api, type TrendsResponse, type Transaction, type Report, type Category, type MerchantIcon as MerchantIconData } from '$lib/api';
 	import MerchantIcon from '$lib/MerchantIcon.svelte';
 	import CategoryIcon from '$lib/CategoryIcon.svelte';
 	import type { SvelteComponent, ComponentType } from 'svelte';
+
+	marked.setOptions({ gfm: true, breaks: true });
 
 	let IconPicker: ComponentType<SvelteComponent> | null = null;
 	async function ensureIconPicker() {
@@ -130,7 +133,7 @@
 	<title>Dashboard — miser</title>
 </svelte:head>
 
-<div class="dashboard">
+<div>
 	<header class="hero">
 		<div class="hero-month">{trends?.current_month?.toUpperCase() ?? 'LOADING'}</div>
 		<div class="hero-total">
@@ -218,7 +221,7 @@
 				<section class="card narrative">
 					<h2>Monthly Report — {report.year}/{String(report.month).padStart(2, '0')}</h2>
 					<div class="narrative-body">
-						<p>{report.narrative}</p>
+						{@html marked.parse(report.narrative)}
 					</div>
 				</section>
 			{/if}
@@ -232,10 +235,6 @@
 {/if}
 
 <style>
-	.dashboard {
-		max-width: 1600px;
-	}
-
 	/* ── Hero ─────────────────────────────────────────── */
 	.hero {
 		margin-bottom: 32px;
@@ -285,8 +284,20 @@
 	/* ── Grid ─────────────────────────────────────────── */
 	.grid {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: 1fr;
 		gap: 24px;
+	}
+
+	@media (min-width: 900px) {
+		.grid {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	@media (min-width: 1500px) {
+		.grid {
+			grid-template-columns: 1fr 1fr 1.2fr;
+		}
 	}
 
 	.card {
@@ -483,18 +494,92 @@
 		grid-column: 1 / -1;
 	}
 
+	@media (min-width: 1500px) {
+		.narrative {
+			grid-column: 3 / 4;
+			grid-row: 1;
+		}
+	}
+
 	.narrative-body {
 		border-left: 2px solid var(--color-accent);
 		padding-left: 20px;
 		margin-top: 4px;
-	}
-
-	.narrative-body p {
 		font-family: var(--font-display);
-		font-style: italic;
 		font-size: 17px;
 		line-height: 1.75;
 		color: var(--color-text-muted);
+	}
+
+	.narrative-body :global(p) {
+		margin-bottom: 12px;
+	}
+
+	.narrative-body :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.narrative-body :global(h1),
+	.narrative-body :global(h2),
+	.narrative-body :global(h3),
+	.narrative-body :global(h4) {
+		font-family: var(--font-display);
+		font-weight: 600;
+		color: var(--color-text);
+		letter-spacing: -0.2px;
+		margin: 18px 0 8px;
+		text-transform: none;
+	}
+
+	.narrative-body :global(h1) { font-size: 24px; }
+	.narrative-body :global(h2) { font-size: 20px; }
+	.narrative-body :global(h3) { font-size: 17px; }
+	.narrative-body :global(h4) { font-size: 15px; }
+
+	.narrative-body :global(h1:first-child),
+	.narrative-body :global(h2:first-child),
+	.narrative-body :global(h3:first-child),
+	.narrative-body :global(h4:first-child) {
+		margin-top: 0;
+	}
+
+	.narrative-body :global(ul),
+	.narrative-body :global(ol) {
+		padding-left: 22px;
+		margin-bottom: 12px;
+	}
+
+	.narrative-body :global(li) {
+		margin-bottom: 4px;
+	}
+
+	.narrative-body :global(strong) {
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.narrative-body :global(em) {
+		font-style: italic;
+	}
+
+	.narrative-body :global(code) {
+		font-family: var(--font-mono);
+		font-size: 0.9em;
+		background: var(--color-surface-alt);
+		padding: 1px 5px;
+		border-radius: 4px;
+	}
+
+	.narrative-body :global(blockquote) {
+		border-left: 2px solid var(--color-border);
+		padding-left: 14px;
+		margin: 12px 0;
+		color: var(--color-text-muted);
+	}
+
+	.narrative-body :global(a) {
+		color: var(--color-accent);
+		text-decoration: underline;
 	}
 
 	/* ── Amount colors ────────────────────────────────── */

@@ -1,10 +1,7 @@
-.PHONY: build run serve test lint fmt clean init sync help review organize weekly-report monthly-report budgets
+.PHONY: build run dev dev-web dev-api test lint fmt clean init sync help review organize weekly-report monthly-report budgets
 
 build:                          ## Build the miser binary
 	go build -o bin/miser ./cmd/miser
-
-web-build:                      ## Build the Svelte frontend (bun required)
-	cd web && bun run build
 
 run: build                      ## Build and run (ARGS="sync email")
 	./bin/miser $(ARGS)
@@ -18,8 +15,14 @@ init: build                     ## First-time setup
 sync: build                     ## Sync all sources
 	./bin/miser sync
 
-serve: web-build build          ## Build frontend + Go binary and start the web server
-	./bin/miser serve
+dev:                            ## Hot-reload dev (run `make dev-web` and `make dev-api` in 2 terminals)
+	@echo "Run 'make dev-web' and 'make dev-api' in separate terminals"
+
+dev-web:                        ## Vite dev server with HMR (port 5173)
+	cd web && bun run dev
+
+dev-api:                        ## Go API with air hot reload (port 8090)
+	air
 
 daemon: build                   ## Daemon mode
 	./bin/miser daemon
@@ -55,6 +58,7 @@ tools:                          ## Install dev tools
 	go install golang.org/x/tools/cmd/goimports@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/evilmartians/lefthook@latest
+	go install github.com/air-verse/air@latest
 	lefthook install
 
 review:                         ## Review pending transaction categorizations with Claude

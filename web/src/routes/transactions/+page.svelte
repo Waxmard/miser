@@ -139,7 +139,7 @@
 	<title>Transactions — miser</title>
 </svelte:head>
 
-<div class="page">
+<div>
 	<h1>Transactions</h1>
 
 	<form class="filters" on:submit|preventDefault={applyFilters}>
@@ -213,10 +213,6 @@
 {/if}
 
 <style>
-	.page {
-		max-width: 1600px;
-	}
-
 	h1 {
 		font-family: var(--font-display);
 		font-size: 36px;

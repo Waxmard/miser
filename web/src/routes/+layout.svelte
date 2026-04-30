@@ -42,7 +42,9 @@
 		</ul>
 	</nav>
 	<main class="content">
-		<slot />
+		<div class="content-inner">
+			<slot />
+		</div>
 	</main>
 </div>
 
@@ -152,6 +154,11 @@
 		padding: 40px 48px;
 		overflow-y: auto;
 		background: var(--color-bg);
+	}
+
+	.content-inner {
+		max-width: 2200px;
+		margin: 0 auto;
 	}
 
 	/* ── Mobile (≤768px) ─────────────────────────────── */

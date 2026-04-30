@@ -44,7 +44,7 @@
 	<title>Trends — miser</title>
 </svelte:head>
 
-<div class="page">
+<div>
 	<div class="header">
 		<h1>Trends</h1>
 		{#if trends}
@@ -119,10 +119,6 @@
 </div>
 
 <style>
-	.page {
-		max-width: 1600px;
-	}
-
 	.header {
 		display: flex;
 		align-items: baseline;
