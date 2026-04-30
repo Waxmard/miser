@@ -36,11 +36,16 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 	defer func() { _ = repo.Close() }()
 
 	now := time.Now().UTC()
-	curYear, curMonth, _ := now.Date()
+	curYear, curMonth, curDay := now.Date()
 	curStart := time.Date(curYear, curMonth, 1, 0, 0, 0, 0, time.UTC)
 	curEnd := curStart.AddDate(0, 1, -1).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	prevStart := curStart.AddDate(0, -1, 0)
-	prevEnd := curStart.Add(-time.Second)
+	prevLastDay := prevStart.AddDate(0, 1, -1).Day()
+	prevDay := curDay
+	if prevDay > prevLastDay {
+		prevDay = prevLastDay
+	}
+	prevEnd := time.Date(prevStart.Year(), prevStart.Month(), prevDay, 23, 59, 59, 0, time.UTC)
 
 	currentCats, err := repo.Categories().ListWithCounts(ctx, curStart, curEnd)
 	if err != nil {
@@ -100,8 +105,8 @@ func runTrends(cmd *cobra.Command, _ []string) error {
 	green := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
-	_, _ = fmt.Fprintf(os.Stdout, "SPENDING TRENDS — %s vs %s\n\n",
-		curStart.Format("January 2006"), prevStart.Format("January 2006"))
+	_, _ = fmt.Fprintf(os.Stdout, "SPENDING TRENDS — %s 1–%d vs %s 1–%d\n\n",
+		curStart.Format("Jan 2006"), curDay, prevStart.Format("Jan 2006"), prevDay)
 
 	_, _ = fmt.Fprintf(os.Stdout, "%s  %s  %s  %s  %s  %s\n",
 		header.Render(pad("CATEGORY", 24)),

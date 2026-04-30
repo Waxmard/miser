@@ -20,7 +20,6 @@
 	let report: Report | null = null;
 	let categories: Category[] = [];
 	let merchantIconOverrides: MerchantIconData[] = [];
-	let prevMTDTotal: number | null = null;
 	let loading = true;
 	let error = '';
 
@@ -34,43 +33,15 @@
 	let merchantPickerName = '';
 	let merchantPickerSlug: string | null = null;
 
-	function ymd(year: number, monthIdx: number, day: number) {
-		return `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-	}
-
-	function previousPeriodRange(today: Date) {
-		const year = today.getFullYear();
-		const monthIdx = today.getMonth();
-		const day = today.getDate();
-		const prevYear = monthIdx === 0 ? year - 1 : year;
-		const prevMonthIdx = monthIdx === 0 ? 11 : monthIdx - 1;
-		const prevMonthLastDay = new Date(prevYear, prevMonthIdx + 1, 0).getDate();
-		const prevDay = Math.min(day, prevMonthLastDay);
-		return {
-			from: ymd(prevYear, prevMonthIdx, 1),
-			to: ymd(prevYear, prevMonthIdx, prevDay)
-		};
-	}
-
-	function sumExpenses(txns: Transaction[]) {
-		return txns
-			.filter((t) => t.amount < 0)
-			.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-	}
-
 	onMount(async () => {
 		try {
-			const prevRange = previousPeriodRange(new Date());
-			let prevTxns: Transaction[];
-			[trends, recentTxns, report, categories, merchantIconOverrides, prevTxns] = await Promise.all([
+			[trends, recentTxns, report, categories, merchantIconOverrides] = await Promise.all([
 				api.trends(),
 				api.transactions({ limit: 10 }),
 				api.latestReport(),
 				api.categories(),
-				api.merchantIcons(),
-				api.transactions({ from: prevRange.from, to: prevRange.to, limit: 10000 })
+				api.merchantIcons()
 			]);
-			prevMTDTotal = sumExpenses(prevTxns);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load dashboard';
 		} finally {
@@ -152,15 +123,14 @@
 	$: budgetMap = Object.fromEntries(
 		(trends?.budgets ?? []).map((b) => [b.category, b.budget])
 	);
-	$: heroTotal =
-		trends?.current
-			.filter((cat) => cat.total < 0)
-			.reduce((sum, cat) => sum + Math.abs(cat.total), 0) ?? 0;
+	function sumExpenses(cats: { total: number }[]) {
+		return cats.filter((c) => c.total < 0).reduce((sum, c) => sum + Math.abs(c.total), 0);
+	}
 
+	$: heroTotal = trends ? sumExpenses(trends.current) : 0;
+	$: prevMTDTotal = trends ? sumExpenses(trends.previous) : 0;
 	$: momDeltaPct =
-		prevMTDTotal !== null && prevMTDTotal > 0
-			? ((heroTotal - prevMTDTotal) / prevMTDTotal) * 100
-			: null;
+		trends && prevMTDTotal > 0 ? ((heroTotal - prevMTDTotal) / prevMTDTotal) * 100 : null;
 </script>
 
 <svelte:head>
@@ -179,7 +149,7 @@
 					<span class="delta {momDeltaPct >= 0 ? 'expense' : 'income'}">
 						{momDeltaPct >= 0 ? '▲' : '▼'} {Math.abs(momDeltaPct).toFixed(1)}%
 					</span>
-					vs same point last month (${prevMTDTotal!.toLocaleString('en-US', { maximumFractionDigits: 0 })})
+					vs same point last month (${prevMTDTotal.toLocaleString('en-US', { maximumFractionDigits: 0 })})
 				{:else if !loading}
 					No prior month data
 				{/if}

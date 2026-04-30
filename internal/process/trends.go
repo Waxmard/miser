@@ -25,6 +25,17 @@ type CategoryTotal struct {
 	Subcategories []CategoryTotal `json:"subcategories,omitempty"`
 }
 
+// mtdEnd returns the end-of-day timestamp for monthStart's month at the given
+// day-of-month, clamped to the month's last day.
+func mtdEnd(monthStart time.Time, day int) time.Time {
+	lastDay := monthStart.AddDate(0, 1, -1).Day()
+	if day > lastDay {
+		day = lastDay
+	}
+	y, m, _ := monthStart.Date()
+	return time.Date(y, m, day, 23, 59, 59, 0, time.UTC)
+}
+
 // buildHierarchicalTotals organizes a flat CategoryWithCount list into a tree.
 // Parent totals are rolled up from their children, and children are nested inside
 // the parent's Subcategories field. Categories with zero transactions are omitted.
@@ -74,15 +85,17 @@ func buildHierarchicalTotals(cats []repository.CategoryWithCount) []CategoryTota
 	return result
 }
 
-// GetTrends returns monthly spending data for the current and previous months.
+// GetTrends returns monthly spending data for the current month and the
+// previous month clamped to the same day-of-month as today, so MoM
+// comparisons are apples-to-apples mid-month.
 func GetTrends(ctx context.Context, repo repository.Repository) (*TrendsOutput, error) {
 	now := time.Now().UTC()
-	curYear, curMonth, _ := now.Date()
+	curYear, curMonth, curDay := now.Date()
 	curStart := time.Date(curYear, curMonth, 1, 0, 0, 0, 0, time.UTC)
 	curEnd := curStart.AddDate(0, 1, -1).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 
 	prevStart := curStart.AddDate(0, -1, 0)
-	prevEnd := curStart.Add(-time.Second)
+	prevEnd := mtdEnd(prevStart, curDay)
 
 	currentCats, err := repo.Categories().ListWithCounts(ctx, curStart, curEnd)
 	if err != nil {
