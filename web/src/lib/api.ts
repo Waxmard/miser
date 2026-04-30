@@ -27,18 +27,37 @@ export interface Category {
 	total_amount: number;
 }
 
-export interface CategoryTotal {
+export type Pacing = 'on_track' | 'ahead' | 'behind' | 'over';
+
+export interface CategoryTrend {
 	category: string;
-	total: number;
-	count: number;
-	subcategories?: CategoryTotal[];
+	current: number;
+	previous: number;
+	delta_abs: number;
+	delta_pct?: number;
+	budget?: number;
+	budget_used_pct?: number;
+	pacing?: Pacing;
+	txn_count: number;
+	subcategories?: CategoryTrend[];
+}
+
+export interface TransactionFlag {
+	transaction_id: string;
+	date: string;
+	merchant: string;
+	category: string;
+	amount: number;
+	reason: string;
 }
 
 export interface TrendsResponse {
 	current_month: string;
 	previous_month: string;
-	current: CategoryTotal[];
-	previous: CategoryTotal[];
+	month_progress: number;
+	categories: CategoryTrend[];
+	top_movers: CategoryTrend[];
+	anomalies?: TransactionFlag[];
 	budgets: { category: string; budget: number }[];
 }
 
@@ -57,11 +76,31 @@ export interface Account {
 	source: string;
 }
 
+export interface ReportSectionItem {
+	label: string;
+	value?: string;
+	delta?: string;
+	note?: string;
+	pct?: number;
+	sign?: 'positive' | 'negative' | 'neutral';
+}
+
+export interface ReportSection {
+	type: 'stat' | 'scorecard' | 'movers' | 'transactions' | 'takeaways';
+	title: string;
+	value?: string;
+	delta?: string;
+	sign?: 'positive' | 'negative' | 'neutral';
+	note?: string;
+	items?: ReportSectionItem[];
+}
+
 export interface Report {
 	id: string;
 	year: number;
 	month: number;
 	narrative: string;
+	sections?: ReportSection[];
 }
 
 export interface MerchantIcon {

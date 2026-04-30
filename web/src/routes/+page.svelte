@@ -119,16 +119,13 @@
 		return amount < 0 ? 'expense' : 'income';
 	}
 
-	$: topCategories = trends?.current.slice(0, 5) ?? [];
-	$: budgetMap = Object.fromEntries(
-		(trends?.budgets ?? []).map((b) => [b.category, b.budget])
-	);
-	function sumExpenses(cats: { total: number }[]) {
-		return cats.filter((c) => c.total < 0).reduce((sum, c) => sum + Math.abs(c.total), 0);
+	$: topCategories = trends?.categories.slice(0, 5) ?? [];
+	function sumExpenses(amounts: number[]) {
+		return amounts.filter((a) => a < 0).reduce((sum, a) => sum + Math.abs(a), 0);
 	}
 
-	$: heroTotal = trends ? sumExpenses(trends.current) : 0;
-	$: prevMTDTotal = trends ? sumExpenses(trends.previous) : 0;
+	$: heroTotal = trends ? sumExpenses(trends.categories.map((c) => c.current)) : 0;
+	$: prevMTDTotal = trends ? sumExpenses(trends.categories.map((c) => c.previous)) : 0;
 	$: momDeltaPct =
 		trends && prevMTDTotal > 0 ? ((heroTotal - prevMTDTotal) / prevMTDTotal) * 100 : null;
 </script>
@@ -170,8 +167,8 @@
 				<h2>Top Categories</h2>
 				<ul class="category-list">
 					{#each topCategories as cat}
-						{@const budget = budgetMap[cat.category]}
-						{@const pct = budget ? Math.min(100, (Math.abs(cat.total) / budget) * 100) : null}
+						{@const pct = cat.budget_used_pct ?? null}
+						{@const barPct = pct !== null ? Math.min(100, pct) : null}
 						{@const catData = categoryMap.get(cat.category)}
 						<li>
 							<div class="cat-row">
@@ -184,15 +181,15 @@
 									/>
 									<span class="cat-name">{cat.category}</span>
 								</div>
-								<span class="cat-amount {amountClass(cat.total)}">{formatAmount(cat.total)}</span>
+								<span class="cat-amount {amountClass(cat.current)}">{formatAmount(cat.current)}</span>
 							</div>
-							{#if pct !== null}
+							{#if barPct !== null && pct !== null}
 								<div class="budget-bar-row">
 									<div class="budget-bar">
 										<div
 											class="budget-fill"
 											class:over={pct >= 100}
-											style="width: {pct}%"
+											style="width: {barPct}%"
 										></div>
 									</div>
 									<span class="budget-pct" class:over={pct >= 100}>{pct.toFixed(0)}%</span>
@@ -230,12 +227,94 @@
 		</div>
 
 		{#if report}
-			<article class="narrative">
+			<section class="report-header">
 				<h2>Monthly Report — {report.year}/{String(report.month).padStart(2, '0')}</h2>
-				<div class="narrative-body">
-					{@html marked.parse(report.narrative)}
+			</section>
+			{#if report.sections && report.sections.length > 0}
+				<div class="report-sections">
+					{#each report.sections as section}
+						{#if section.type === 'stat'}
+							<div class="card report-stat-card">
+								<div class="stat-label">{section.title.toUpperCase()}</div>
+								<div class="report-stat-value">{section.value}</div>
+								{#if section.delta}
+									<div class="report-stat-row">
+										<span class="report-stat-delta {section.sign === 'positive' ? 'income' : section.sign === 'negative' ? 'expense' : 'muted'}">
+											{section.delta}
+										</span>
+										{#if section.note}
+											<span class="report-stat-note">{section.note}</span>
+										{/if}
+									</div>
+								{:else if section.note}
+									<div class="report-stat-note">{section.note}</div>
+								{/if}
+							</div>
+						{:else if section.type === 'scorecard'}
+							<div class="card">
+								<h2>{section.title}</h2>
+								<ul class="report-item-list">
+									{#each section.items ?? [] as item}
+										{@const pct = item.pct ?? 0}
+										<li class="report-item">
+											<div class="report-item-row">
+												<span class="report-item-label">{item.label}</span>
+												<span class="report-item-value {item.sign === 'positive' ? 'income' : item.sign === 'negative' ? 'expense' : ''}">{item.value}</span>
+											</div>
+											{#if item.pct !== undefined}
+												<div class="budget-bar-row">
+													<div class="budget-bar">
+														<div class="budget-fill" class:over={pct >= 100} style="width: {Math.min(100, pct)}%"></div>
+													</div>
+													<span class="budget-pct" class:over={pct >= 100}>{pct.toFixed(0)}%</span>
+												</div>
+											{/if}
+											{#if item.note}
+												<div class="report-item-note">{item.note}</div>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{:else if section.type === 'movers' || section.type === 'transactions'}
+							<div class="card">
+								<h2>{section.title}</h2>
+								<ul class="report-item-list">
+									{#each section.items ?? [] as item}
+										<li class="report-item">
+											<div class="report-item-row">
+												<span class="report-item-label">{item.label}</span>
+												<span class="report-item-value {item.sign === 'positive' ? 'income' : item.sign === 'negative' ? 'expense' : ''}">{item.value ?? item.delta ?? ''}</span>
+											</div>
+											{#if item.note}
+												<div class="report-item-note">{item.note}</div>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{:else if section.type === 'takeaways'}
+							<div class="card report-takeaways">
+								<h2>{section.title}</h2>
+								<ol class="takeaway-list">
+									{#each section.items ?? [] as item, i}
+										<li class="takeaway-item">
+											<span class="takeaway-num">{i + 1}</span>
+											<span class="takeaway-text">{item.label}</span>
+										</li>
+									{/each}
+								</ol>
+							</div>
+						{/if}
+					{/each}
 				</div>
-			</article>
+			{:else if report.narrative}
+				<article class="narrative">
+					<div class="narrative-body">
+						{@html marked.parse(report.narrative)}
+					</div>
+				</article>
+			{/if}
 		{/if}
 	{/if}
 </div>
@@ -507,109 +586,150 @@
 		color: var(--color-accent);
 	}
 
-	/* ── Narrative (full-width band below grid) ───────── */
-	.narrative {
+	/* ── Report sections (structured, below grid) ──────── */
+	.report-header {
 		margin-top: 32px;
+		margin-bottom: 16px;
+	}
+
+	.report-sections {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: 24px;
+	}
+
+	.report-takeaways {
+		grid-column: 1 / -1;
+	}
+
+	/* stat card */
+	.report-stat-card {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.report-stat-value {
+		font-family: var(--font-mono);
+		font-size: 2rem;
+		font-weight: 600;
+		color: var(--color-text);
+		line-height: 1.1;
+		margin: 4px 0;
+	}
+
+	.report-stat-row {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.report-stat-delta {
+		font-family: var(--font-mono);
+		font-size: 0.882rem;
+		font-weight: 500;
+	}
+
+	.report-stat-note {
+		font-size: 0.824rem;
+		color: var(--color-text-muted);
+	}
+
+	.muted {
+		color: var(--color-text-muted);
+	}
+
+	/* item lists (scorecard, movers, transactions) */
+	.report-item-list {
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.report-item {
+		padding: 10px 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.report-item:last-child {
+		border-bottom: none;
+	}
+
+	.report-item-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 8px;
+	}
+
+	.report-item-label {
+		font-size: 0.824rem;
+		font-weight: 500;
+		color: var(--color-text);
+		flex: 1;
+		min-width: 0;
+	}
+
+	.report-item-value {
+		font-family: var(--font-mono);
+		font-size: 0.824rem;
+		white-space: nowrap;
+	}
+
+	.report-item-note {
+		font-size: 0.706rem;
+		color: var(--color-text-muted);
+		margin-top: 3px;
+	}
+
+	/* takeaways */
+	.takeaway-list {
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.takeaway-item {
+		display: flex;
+		align-items: baseline;
+		gap: 12px;
+	}
+
+	.takeaway-num {
+		font-family: var(--font-mono);
+		font-size: 0.706rem;
+		font-weight: 600;
+		color: var(--color-accent);
+		min-width: 14px;
+		flex-shrink: 0;
+	}
+
+	.takeaway-text {
+		font-size: 0.882rem;
+		color: var(--color-text);
+		line-height: 1.5;
+	}
+
+	/* ── Narrative fallback (old reports) ───────────────── */
+	.narrative {
+		margin-top: 8px;
 	}
 
 	.narrative-body {
 		border-left: 2px solid var(--color-accent);
 		padding-left: 24px;
-		margin-top: 4px;
 		font-family: var(--font-display);
 		font-size: 1rem;
 		line-height: 1.75;
 		color: var(--color-text-muted);
 	}
 
-	@media (min-width: 1100px) {
-		.narrative-body {
-			column-count: 2;
-			column-gap: 56px;
-		}
-
-		.narrative-body :global(p),
-		.narrative-body :global(li) {
-			break-inside: avoid;
-		}
-	}
-
-	@media (min-width: 1800px) {
-		.narrative-body {
-			column-count: 3;
-		}
-	}
-
-	.narrative-body :global(p) {
-		margin-bottom: 12px;
-	}
-
-	.narrative-body :global(p:last-child) {
-		margin-bottom: 0;
-	}
-
-	.narrative-body :global(h1),
-	.narrative-body :global(h2),
-	.narrative-body :global(h3),
-	.narrative-body :global(h4) {
-		font-family: var(--font-display);
-		font-weight: 600;
-		color: var(--color-text);
-		letter-spacing: -0.2px;
-		margin: 18px 0 8px;
-		text-transform: none;
-	}
-
-	.narrative-body :global(h1) { font-size: 1.412rem; }
-	.narrative-body :global(h2) { font-size: 1.176rem; }
-	.narrative-body :global(h3) { font-size: 1rem; }
-	.narrative-body :global(h4) { font-size: 0.882rem; }
-
-	.narrative-body :global(h1:first-child),
-	.narrative-body :global(h2:first-child),
-	.narrative-body :global(h3:first-child),
-	.narrative-body :global(h4:first-child) {
-		margin-top: 0;
-	}
-
-	.narrative-body :global(ul),
-	.narrative-body :global(ol) {
-		padding-left: 22px;
-		margin-bottom: 12px;
-	}
-
-	.narrative-body :global(li) {
-		margin-bottom: 4px;
-	}
-
-	.narrative-body :global(strong) {
-		font-weight: 600;
-		color: var(--color-text);
-	}
-
-	.narrative-body :global(em) {
-		font-style: italic;
-	}
-
-	.narrative-body :global(code) {
-		font-family: var(--font-mono);
-		font-size: 0.9em;
-		background: var(--color-surface-alt);
-		padding: 1px 5px;
-		border-radius: 4px;
-	}
-
-	.narrative-body :global(blockquote) {
-		border-left: 2px solid var(--color-border);
-		padding-left: 14px;
-		margin: 12px 0;
-		color: var(--color-text-muted);
-	}
-
-	.narrative-body :global(a) {
-		color: var(--color-accent);
-		text-decoration: underline;
-	}
+	.narrative-body :global(p) { margin-bottom: 12px; }
+	.narrative-body :global(p:last-child) { margin-bottom: 0; }
+	.narrative-body :global(strong) { font-weight: 600; color: var(--color-text); }
+	.narrative-body :global(em) { font-style: italic; }
 
 	/* ── Amount colors ────────────────────────────────── */
 	.income {

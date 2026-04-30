@@ -4,13 +4,16 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+
+	"github.com/Waxmard/miser/internal/repository"
 )
 
 type reportResponse struct {
-	ID        string `json:"id"`
-	Year      int    `json:"year"`
-	Month     int    `json:"month"`
-	Narrative string `json:"narrative"`
+	ID        string                     `json:"id"`
+	Year      int                        `json:"year"`
+	Month     int                        `json:"month"`
+	Narrative string                     `json:"narrative"`
+	Sections  []repository.ReportSection `json:"sections,omitempty"`
 }
 
 func (s *Server) handleLatestReport(w http.ResponseWriter, r *http.Request) {
@@ -31,5 +34,6 @@ func (s *Server) handleLatestReport(w http.ResponseWriter, r *http.Request) {
 		Year:      report.Year,
 		Month:     report.Month,
 		Narrative: report.Narrative,
+		Sections:  report.Sections,
 	})
 }

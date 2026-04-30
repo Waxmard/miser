@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -609,9 +610,25 @@ func TestWriteReport(t *testing.T) {
 	ctx := context.Background()
 
 	input := ReportInput{
-		Year:      2026,
-		Month:     3,
-		Narrative: "Spending was moderate this month.",
+		Year:  2026,
+		Month: 3,
+		Sections: []repository.ReportSection{
+			{
+				Type:  "stat",
+				Title: "March Total",
+				Value: "$3,241",
+				Delta: "+8.9%",
+				Sign:  "negative",
+				Note:  "vs $2,980 in February",
+			},
+			{
+				Type:  "takeaways",
+				Title: "Takeaways",
+				Items: []repository.ReportSectionItem{
+					{Label: "Spending was moderate this month."},
+				},
+			},
+		},
 	}
 
 	jsonPath := filepath.Join(t.TempDir(), "report.json")
@@ -628,7 +645,181 @@ func TestWriteReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByMonth() error: %v", err)
 	}
-	if report.Narrative != "Spending was moderate this month." {
-		t.Errorf("Narrative = %q, want %q", report.Narrative, "Spending was moderate this month.")
+	if len(report.Sections) != 2 {
+		t.Errorf("Sections len = %d, want 2", len(report.Sections))
+	}
+	if report.Sections[0].Value != "$3,241" {
+		t.Errorf("Sections[0].Value = %q, want %q", report.Sections[0].Value, "$3,241")
+	}
+}
+
+func TestClassifyPacing(t *testing.T) {
+	cases := []struct {
+		name          string
+		used          float64
+		monthProgress float64
+		want          string
+	}{
+		{"over budget", 1.05, 0.5, "over"},
+		{"ahead", 0.70, 0.5, "ahead"}, // > progress + 0.10
+		{"on track high", 0.55, 0.5, "on_track"},
+		{"on track low", 0.45, 0.5, "on_track"},
+		{"behind", 0.30, 0.5, "behind"}, // < progress - 0.10
+		{"early month edge", 0.05, 0.10, "on_track"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := classifyPacing(tc.used, tc.monthProgress)
+			if got != tc.want {
+				t.Errorf("classifyPacing(%v, %v) = %q, want %q", tc.used, tc.monthProgress, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMedian(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []float64
+		want float64
+	}{
+		{"empty", nil, 0},
+		{"single", []float64{42}, 42},
+		{"odd", []float64{1, 3, 2}, 2},
+		{"even", []float64{1, 2, 3, 4}, 2.5},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := median(slices.Clone(tc.in))
+			if got != tc.want {
+				t.Errorf("median(%v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBuildTrend(t *testing.T) {
+	t.Run("no budget", func(t *testing.T) {
+		got := buildTrend("Groceries", -300, -250, 0, 0.5, 10)
+		if got.DeltaAbs != -50 {
+			t.Errorf("DeltaAbs = %v, want -50", got.DeltaAbs)
+		}
+		if got.DeltaPct != -20.0 {
+			t.Errorf("DeltaPct = %v, want -20.0", got.DeltaPct)
+		}
+		if got.Pacing != "" {
+			t.Errorf("Pacing = %q, want empty (no budget)", got.Pacing)
+		}
+	})
+	t.Run("with budget on track", func(t *testing.T) {
+		got := buildTrend("Groceries", -300, 0, 600, 0.5, 10)
+		if got.BudgetUsedPct != 50.0 {
+			t.Errorf("BudgetUsedPct = %v, want 50.0", got.BudgetUsedPct)
+		}
+		if got.Pacing != "on_track" {
+			t.Errorf("Pacing = %q, want on_track", got.Pacing)
+		}
+		if got.DeltaPct != 0 {
+			t.Errorf("DeltaPct = %v, want 0 (zero previous omits)", got.DeltaPct)
+		}
+	})
+	t.Run("with budget over", func(t *testing.T) {
+		got := buildTrend("Dining", -700, -400, 600, 0.5, 12)
+		if got.Pacing != "over" {
+			t.Errorf("Pacing = %q, want over", got.Pacing)
+		}
+	})
+}
+
+func TestGetTrends(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	curStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+	acct := &repository.Account{
+		ID: "a1", Name: "Checking", Institution: "test",
+		AccountType: "checking", Source: "manual", CreatedAt: now, UpdatedAt: now,
+	}
+	if err := repo.Accounts().Create(ctx, acct); err != nil {
+		t.Fatal(err)
+	}
+	groc := &repository.Category{ID: "c_groc", Name: "Groceries", CreatedAt: now}
+	if err := repo.Categories().Create(ctx, groc); err != nil {
+		t.Fatal(err)
+	}
+
+	cat := groc.ID
+	by := "manual"
+	mkTxn := func(id string, amount float64, date time.Time) *repository.Transaction {
+		return &repository.Transaction{
+			ID: id, AccountID: "a1", Amount: amount, Merchant: "Store",
+			Date: date, Source: "manual", Status: "categorized",
+			CategoryID: &cat, CategorizedBy: &by, CreatedAt: now, UpdatedAt: now,
+		}
+	}
+
+	// Current month: 3 normal + 1 outlier.
+	curTxns := []*repository.Transaction{
+		mkTxn("c1", -50, curStart.AddDate(0, 0, 1)),
+		mkTxn("c2", -55, curStart.AddDate(0, 0, 2)),
+		mkTxn("c3", -45, curStart.AddDate(0, 0, 3)),
+		mkTxn("c4", -300, curStart.AddDate(0, 0, 4)), // 6x median ($50)
+	}
+	// Previous 6 months history of $40-$60 transactions.
+	for m := 1; m <= 6; m++ {
+		mStart := curStart.AddDate(0, -m, 0)
+		curTxns = append(curTxns,
+			mkTxn(fmt.Sprintf("h%d_a", m), -50, mStart.AddDate(0, 0, 5)),
+			mkTxn(fmt.Sprintf("h%d_b", m), -45, mStart.AddDate(0, 0, 10)),
+			mkTxn(fmt.Sprintf("h%d_c", m), -55, mStart.AddDate(0, 0, 15)),
+		)
+	}
+	for _, tx := range curTxns {
+		if err := repo.Transactions().Create(ctx, tx); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Set a budget so pacing populates.
+	bud := &repository.Budget{ID: "b1", CategoryID: "c_groc", MonthlyAmount: 600, CreatedAt: now, UpdatedAt: now}
+	if err := repo.Budgets().Set(ctx, bud); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := GetTrends(ctx, repo)
+	if err != nil {
+		t.Fatalf("GetTrends() error: %v", err)
+	}
+
+	if len(out.Categories) != 1 {
+		t.Fatalf("len(Categories) = %d, want 1", len(out.Categories))
+	}
+	gr := out.Categories[0]
+	if gr.Category != "Groceries" {
+		t.Errorf("Category = %q, want Groceries", gr.Category)
+	}
+	if gr.Budget != 600 {
+		t.Errorf("Budget = %v, want 600", gr.Budget)
+	}
+	if gr.Pacing == "" {
+		t.Errorf("Pacing empty — expected populated when budget is set")
+	}
+	if gr.TxnCount != 4 {
+		t.Errorf("TxnCount = %d, want 4", gr.TxnCount)
+	}
+
+	if len(out.TopMovers) == 0 {
+		t.Errorf("TopMovers empty — expected leaf categories")
+	}
+
+	if len(out.Anomalies) == 0 {
+		t.Fatalf("Anomalies empty — expected $300 outlier flagged")
+	}
+	if out.Anomalies[0].TxnID != "c4" {
+		t.Errorf("Anomalies[0].TxnID = %q, want c4", out.Anomalies[0].TxnID)
+	}
+	if out.MonthProgress <= 0 || out.MonthProgress > 1 {
+		t.Errorf("MonthProgress = %v, want 0..1", out.MonthProgress)
 	}
 }

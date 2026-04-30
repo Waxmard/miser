@@ -1,25 +1,8 @@
-# Monthly Spending Report
+# Task: Generate the monthly spending report
 
-Claude Code cron job that generates an end-of-month spending summary on the 1st of each month.
+You are a personal finance analyst for a single user. Produce a structured monthly spending report for the month that just ended.
 
-## Schedule
-
-```crontab
-# 1st of every month at 9am
-0 9 1 * * claude -p "Follow the instructions below exactly. Execute each step in order. Do not ask questions. $(cat /path/to/miser/cron/monthly-report.md)" --model sonnet --allowedTools "Bash,Read,Write"
-```
-
-Flags:
-- `--model sonnet` — Sonnet follows multi-step instructions reliably; Haiku tends to ask clarifying questions instead of executing
-- `--allowedTools "Bash,Read,Write"` — pre-approves tools so there are no interactive permission prompts
-
-Note: `--bare` is not used because it strips authentication context needed for the CLI.
-
-## Prompt
-
-You are a personal finance analyst for a single user. Your job is to generate a brief, actionable monthly spending summary for the month that just ended.
-
-### Step 1: Gather data
+## Step 1: Gather data
 
 Run these commands and read their output:
 
@@ -27,82 +10,120 @@ Run these commands and read their output:
 miser internal process trends
 ```
 
-This returns JSON with the structure:
+Returns JSON with pre-computed deltas, pacing, top movers, and anomalies:
 
 ```json
 {
   "current_month": "2026-04",
   "previous_month": "2026-03",
-  "current": [{"category": "Groceries", "total": -450.00, "count": 12}, ...],
-  "previous": [{"category": "Groceries", "total": -520.00, "count": 15}, ...],
-  "budgets": [{"category": "Groceries", "budget": 600.00}, ...]
+  "month_progress": 0.03,
+  "categories": [
+    {
+      "category": "Groceries",
+      "current": -45.00, "previous": -520.00,
+      "delta_abs": 475.00, "delta_pct": -91.3,
+      "budget": 600.00, "budget_used_pct": 7.5, "pacing": "behind",
+      "txn_count": 1
+    }
+  ],
+  "top_movers": [{"category": "Dining", "current": -50, "previous": -420, "delta_abs": 370, "delta_pct": -88.1}],
+  "anomalies": [{"merchant": "Delta", "category": "Travel", "amount": -892, "date": "2026-03-15", "reason": "5.2x category median ($170)"}],
+  "budgets": [{"category": "Groceries", "budget": 600.00}]
 }
 ```
 
-Note: Since this runs on the 1st, `current_month` is the new month (nearly empty) and `previous_month` is the month we're summarizing. **Focus your analysis on the `previous` data — that's the completed month.**
+Since this runs on the 1st, `current_month` is the new (nearly empty) month and `previous_month` is the completed month you are summarizing. **All `current`/`previous`/`delta_*` fields refer to the new month vs the completed month — they are NOT what you want for the report.**
 
-Also run for the full category breakdown of the completed month:
+For the completed month's own data, run:
 
 ```bash
 miser categories --from $(date -v-1m -v1d +%Y-%m-%d) --to $(date -v-1d +%Y-%m-%d)
 ```
 
-### Step 2: Analyze
+Compare it against two months ago for MoM context:
+
+```bash
+miser categories --from $(date -v-2m -v1d +%Y-%m-%d) --to $(date -v-2m -v-1d +%Y-%m-%d)
+```
+
+## Step 2: Analyze
 
 From the data, determine:
 
-1. **Total spending** — sum of all expense categories for the completed month
-2. **Month-over-month change** — compare previous month totals to the month before that (the `current` field in trends data, which on the 1st will be nearly empty, is not useful — instead compare the `previous` data against what you can infer)
-3. **Budget scorecard** — for each category with a budget, did spending come in under or over? By how much?
-4. **Biggest movers** — which categories changed the most vs the prior month (both up and down)?
-5. **Patterns** — any recurring charges, seasonal spending, or trends worth noting?
+1. **Total spending** — sum of all expense categories for the completed month, and the transaction count (from `miser categories` output)
+2. **Month-over-month change** — completed month vs two months ago
+3. **Budget scorecard** — for each category with a budget set, compute actual / budget / pct used / over-or-under for the completed month
+4. **Biggest movers** — categories with the largest absolute dollar change between completed month and two months ago, with a short reason if apparent
+5. **Notable transactions** — largest individual charges in the completed month worth calling out
 
-### Step 3: Write the report
+## Step 3: Write the report
 
-Write a JSON file to `/tmp/miser-report.json` with this exact structure:
+Write `/tmp/miser-report.json` matching this schema exactly. Treat the schema as a contract, not as example prose.
 
-```json
+<output_schema>
 {
   "year": 2026,
   "month": 3,
-  "narrative": "your narrative here"
+  "sections": [
+    {
+      "type": "stat",
+      "title": "March Total",
+      "value": "$3,241",
+      "delta": "+8.9%",
+      "sign": "negative",
+      "note": "vs $2,980 in February • 87 transactions"
+    },
+    {
+      "type": "scorecard",
+      "title": "Budget Scorecard",
+      "items": [
+        { "label": "Dining", "value": "$420", "note": "$300 budget", "pct": 140, "sign": "negative" },
+        { "label": "Groceries", "value": "$550", "note": "$600 budget", "pct": 91, "sign": "positive" }
+      ]
+    },
+    {
+      "type": "movers",
+      "title": "Biggest Changes",
+      "items": [
+        { "label": "Dining", "value": "+$120", "note": "4 restaurant charges over $40", "sign": "negative" },
+        { "label": "Shopping", "value": "-$200", "note": "back to normal after Feb purchases", "sign": "positive" }
+      ]
+    },
+    {
+      "type": "transactions",
+      "title": "Notable Transactions",
+      "items": [
+        { "label": "Delta Airlines", "value": "$892", "note": "Apr 2", "sign": "negative" }
+      ]
+    },
+    {
+      "type": "takeaways",
+      "title": "Takeaways",
+      "items": [
+        { "label": "Dining over budget 3 months in a row — consider a weekly dining cap of $75" },
+        { "label": "Groceries consistent for 3 months — budget well-calibrated" },
+        { "label": "March was highest-spend month this quarter — total trending up" }
+      ]
+    }
+  ]
 }
-```
+</output_schema>
 
-Use the **completed** month's year and month (not the current date). The narrative should be ~200 words in this format:
+Rules:
 
-```
-**March 2026 Summary**
+- Use the **completed** month's year and month (not the current date)
+- `sign`: `"negative"` = bad/expense color, `"positive"` = good/income color, omit for neutral
+- `delta` on the stat section: format as `"+X.X%"` or `"-X.X%"` — spending up = `"negative"` sign
+- `scorecard` `pct`: integer percentage of budget used (can exceed 100 for over-budget)
+- `movers` `value`: dollar change with sign, e.g. `"+$120"` or `"-$200"`
+- `takeaways`: exactly 3 items, specific and actionable with actual numbers
+- Amounts are negative for expenses in the raw data — present them as positive dollars in the output
 
-- Total spending: $3,245 across 87 transactions (vs $2,980 in Feb, +8.9%)
-- Budget scorecard: 4/6 budgets hit. Groceries under by $50. Dining over by $120.
-- Biggest increases: Dining +$120 (+35%), driven by 4 restaurant charges over $40
-- Biggest decreases: Shopping -$200 (-45%), back to normal after February's one-time purchases
-- Pattern: Subscription charges totaled $85 across 6 services
-
-**Top 3 takeaways:**
-1. Dining is the main budget miss — consider a weekly dining cap of $75
-2. Grocery spending has been consistent for 3 months — current budget is well-calibrated
-3. Total spending is trending up — March was the highest month this quarter
-```
-
-Key rules for the narrative:
-- Lead with total spending and the month-over-month trend
-- Budget scorecard should be a quick pass/fail, not a detailed breakdown of every category
-- "Biggest movers" = categories with the largest absolute dollar change, not percentage
-- Takeaways should be specific and actionable — reference actual numbers
-- Amounts are negative for expenses in the data — present them as positive in the narrative for readability
-
-### Step 4: Save the report
+## Step 4: Persist and verify
 
 ```bash
 miser internal write report /tmp/miser-report.json
-```
-
-Verify it was saved:
-
-```bash
 miser trends report
 ```
 
-This should display the narrative you just wrote.
+The verify command must print the report. If it does not, stop and report the error.

@@ -51,11 +51,11 @@ type SuggestedRule struct {
 	MatchType string `json:"match_type"`
 }
 
-// ReportInput is the JSON format Claude writes for weekly reports.
+// ReportInput is the JSON format Claude writes for monthly reports.
 type ReportInput struct {
-	Year      int    `json:"year"`
-	Month     int    `json:"month"`
-	Narrative string `json:"narrative"`
+	Year     int                        `json:"year"`
+	Month    int                        `json:"month"`
+	Sections []repository.ReportSection `json:"sections"`
 }
 
 // WriteParsedEmails reads Claude's parse results from a JSON file and writes transactions to the DB.
@@ -197,7 +197,8 @@ func WriteReport(ctx context.Context, repo repository.Repository, jsonPath strin
 		ID:        ulid.Make().String(),
 		Year:      input.Year,
 		Month:     input.Month,
-		Narrative: input.Narrative,
+		Narrative: "",
+		Sections:  input.Sections,
 		Data:      string(data),
 		CreatedAt: time.Now().UTC(),
 	}
